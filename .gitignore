@@ -1,0 +1,6 @@
+# user settings
+settings.json
+
+jacques/__pycache__
+tools/*.pyc
+tools/__pycache__

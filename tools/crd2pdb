@@ -1,0 +1,28 @@
+#!/usr/bin/env python2
+
+# Description: Convert structures from dynamo's crd to pdb
+# Last update: 22-12-2020
+
+import os
+import sys
+
+import ecmb
+
+# help
+if len(sys.argv)<2 or sys.argv[1] in ('-h','--help'):
+    sys.stdout.write("""USAGE:    crd2pdb  <.crd> <...>\n""")
+    sys.exit(1)
+
+# process unlimited structures
+m = ecmb.Molec()
+for element in sys.argv[1:]:
+    basename = os.path.splitext(element)[0]
+    outname  = basename + ".pdb"
+
+    sys.stdout.write(element + " --> " + outname + "\n")
+
+    m.__init__
+    m.load_crd( element )
+    m.guess_z()
+    m.save_pdb( outname )
+    m.__del__

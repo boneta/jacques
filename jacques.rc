@@ -1,0 +1,24 @@
+#!/bin/bash
+
+#######################################################################
+##                       BASH ENVIRONMENT SETUP                      ##
+#######################################################################
+# source this file in the .bashrc
+
+# set JACQUES variable
+export JACQUES=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
+
+# include this folder and tools in PATH
+export PATH=$PATH:${JACQUES}:${JACQUES}/tools
+# add to PYTHONPATH
+export PYTHONPATH=$PYTHONPATH:${JACQUES}:${JACQUES}/tools
+
+# source DYNAMON if not already set
+if [ -z "${DYNAMON}" ]; then
+  source ${JACQUES}/dynamon/dynamon.rc
+else
+  source ${DYNAMON}/dynamon.rc
+fi
+
+# source autocompletion
+# source ${JACQUES}/.autocompletion.sh

@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+
+# Description: Transfer interaction data to b-factor in a pdb
+# Last update: 19-01-2021
+
+import os
+import numpy as np
+import argparse
+
+import pdb4all        # http://github.com/boneta/pdb4all
+
+# Parser
+parser = argparse.ArgumentParser(prog='int2bfac',
+                                 description='Transfer interaction data to b-factor in a pdb')
+parser.add_argument('-i',
+                    metavar='.pdb',
+                    required=True,
+                    type=str,
+                    help='input PDB file')
+parser.add_argument('-o',
+                    metavar='.pdb',
+                    required=False,
+                    type=str,
+                    help='output PDB file (def: <input>_int.pdb)')
+parser.add_argument('-int',
+                    metavar='.dat',
+                    required=True,
+                    type=str,
+                    help='interactions file')
+parser.add_argument('-shift_resn',
+                    metavar='#',
+                    required=False,
+                    type=int,
+                    help='shift residue numbers in output (def: 0)',
+                    default=0)
+parser.add_argument('-imp',
+                    metavar='#',
+                    required=False,
+                    type=float,
+                    help='write file only with residues greater/lower than a threshold value (<int>-imp.dat)')
+args = parser.parse_args()
+
+pdb_infile  = args.i
+pdb_outfile = args.o
+int_infile  = args.int
+shift_resn  = args.shift_resn
+imp_thr   = args.imp
+
+# default PDB outfile
+if pdb_outfile is None: pdb_outfile = os.path.splitext(pdb_infile)[0] + "_int-bfac.pdb"
+
+# read PDB
+inpdb = pdb4all.pdb()
+inpdb.read(pdb_infile)
+
+# read interactions
+with open(int_infile, 'r') as f:
+    inter = f.readlines()
+    inter = map(str.strip, inter)
+
+# process interaction data, only base on residue number
+# interaction file: ResnameResnumber interaction  (A12  -0.2)
+inter_data = []
+for aa in inter:
+    res = aa.split()
+    name_res = res[0].rstrip('0123456789')
+    resn = res[0][len(name_res):]
+    try: inter_data.append([name_res,int(resn),float(res[1]),float(res[2])])
+    except: pass
+
+# clean structure
+for i in ['SOL', 'NA', 'CL']: inpdb.remove('resName', i)
+inpdb.clean_field('tempFactor')
+
+# substitue in protein file
+for a in inpdb.pdb:
+    for aa in inter_data:
+        if a['resSeq'] == aa[1]:
+            try:
+                if pdb4all.aa_letters[a['resName']] == aa[0]:
+                    a['tempFactor'] = aa[2]
+                else:
+                    print("WARNING: Mismatch of resname in {} -> {} /= {}".format(aa[1], pdb4all.aa_letters[a['resName']], aa[0]))
+            except:
+                pass
+    a['resSeq'] = a['resSeq'] + shift_resn
+
+# write PDB outfile
+inpdb.write(pdb_outfile, renum_atoms=True, onlyProtein=False)
+
+# write importan residues
+if imp_thr is not None:
+    imp_outfile = os.path.splitext(int_infile)[0] + "-imp.dat"
+    with open(imp_outfile, 'w') as f:
+        for aa in inter_data:
+            if abs(aa[2]) > imp_thr:
+                f.write("{:1}{:<d}  {:>12.6f} {:>12.6f}\n".format(aa[0], aa[1]+shift_resn, aa[2], aa[3]))

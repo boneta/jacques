@@ -1,0 +1,121 @@
+#!/usr/bin/env python2
+
+# Description: Perform post-processing of interactions
+# Last update: 12-01-2021
+
+import string
+import math
+import argparse
+
+# Parser
+parser = argparse.ArgumentParser(prog='int-postprocess',
+                                 description='Post-processing of interactions')
+parser.add_argument('--resid',
+                    metavar='.resid',
+                    required=True,
+                    type=str,
+                    help='File with a column of labels for residues')
+parser.add_argument('--eqm',
+                    metavar='.dat',
+                    type=str,
+                    help='EQM matrix file (def: intmatrix_eqm.dat)',
+                    default="intmatrix_eqm.dat")
+parser.add_argument('--lj',
+                    metavar='.dat',
+                    type=str,
+                    help='LJ matrix file (def: intmatrix_lj.dat)',
+                    default="intmatrix_lj.dat")
+parser.add_argument('--tot',
+                    metavar='.dat',
+                    type=str,
+                    help='Total matrix file (def: intmatrix_tot.dat)',
+                    default="intmatrix_tot.dat")
+parser.add_argument('--eqm_trj',
+                    metavar='.dat',
+                    type=str,
+                    help='QM energies along trajectory (def: eqm_trj.dat)',
+                    default='eqm_trj.dat')
+args = parser.parse_args()
+
+# variable assignation
+resid_file = args.resid
+eqm_file   = args.eqm
+lj_file    = args.lj
+tot_file   = args.tot
+fort_file  = args.eqm_trj
+
+c = 4.184
+
+f = file( resid_file )
+R = [ string.strip( l ) for l in f ]
+f.close()
+n = len( R )
+
+V = []
+f = file( fort_file, "rt" )
+V = [ string.atof( l ) for l in f ]
+f.close()
+
+m = [ .0 for i in xrange( n ) ]
+s = [ .0 for i in xrange( n ) ]
+N = .0
+f = file( lj_file, "rt" )
+t = [ string.atof( l ) for l in string.split( f.readline() ) ]
+while( t != [] ):
+    for i in xrange( n ):
+        m[i] += t[i]
+        s[i] += t[i] * t[i]
+    N += 1.
+    t = [ string.atof( l ) for l in string.split( f.readline() ) ]
+f.close()
+f = file( "e_lj.dat", "wt" )
+for i in xrange( n ):
+    m[i] /= N
+    s[i] = math.sqrt( math.fabs( s[i] / N - m[i] * m[i] ) )
+    f.write( "%-20s%12.6lf%12.6lf\n"%( R[i], m[i] / c, s[i] / c ) )
+f.write( "#%12.6lf\n"%( sum( m ) / c ) )
+f.close()
+
+m = [ .0 for i in xrange( n ) ]
+s = [ .0 for i in xrange( n ) ]
+N = .0
+f = file( eqm_file, "rt" )
+k = 0
+t = [ string.atof( l ) for l in string.split( f.readline() ) ]
+while( t != [] ):
+    for i in xrange( n ):
+        m[i] += ( t[i] - V[k] )
+        s[i] += ( t[i] - V[k] ) * ( t[i] - V[k] )
+    k += 1
+    N += 1.
+    t = [ string.atof( l ) for l in string.split( f.readline() ) ]
+f.close()
+f = file( "e_el.dat", "wt" )
+for i in xrange( n ):
+    m[i] /= N
+    s[i] = math.sqrt( math.fabs( s[i] / N - m[i] * m[i] ) )
+    f.write( "%-20s%12.6lf%12.6lf\n"%( R[i], m[i] / c, s[i] / c ) )
+f.write( "#%12.6lf\n"%( sum( m ) / c ) )
+f.close()
+
+m = [ .0 for i in xrange( n ) ]
+s = [ .0 for i in xrange( n ) ]
+N = .0
+f = file( tot_file, "rt" )
+k = 0
+t = [ string.atof( l ) for l in string.split( f.readline() ) ]
+while( t != [] ):
+    for i in xrange( n ):
+        m[i] += ( t[i] - V[k] )
+        s[i] += ( t[i] - V[k] ) * ( t[i] - V[k] )
+    k += 1
+    N += 1.
+    t = [ string.atof( l ) for l in string.split( f.readline() ) ]
+f.close()
+f = file( "e_RS.dat", "wt" )
+for i in xrange( n ):
+    m[i] /= N
+    s[i] = math.sqrt( math.fabs( s[i] / N - m[i] * m[i] ) )
+    f.write( "%-20s%12.6lf%12.6lf\n"%( R[i], m[i] / c, s[i] / c ) )
+f.write( "#%12.6lf\n"%( sum( m ) / c ) )
+f.close()

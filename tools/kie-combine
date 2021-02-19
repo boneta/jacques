@@ -1,0 +1,105 @@
+#!/usr/bin/env python
+
+# Description: Combine fDynamo's .log to calculate KIEs
+# Last update: 16-01-2021
+
+import re
+import math as m
+import argparse
+
+## Parser
+parser = argparse.ArgumentParser(prog='kie-combine',
+                                 description="Combine fDynamo's .log to calculate KIEs",
+                                 formatter_class=argparse.RawTextHelpFormatter)
+parser.add_argument('-t',
+                    '--temp',
+                    required=False,
+                    type=float,
+                    help='temperature (def: 298 K)',
+                    default=298.)
+parser.add_argument('-r',
+                    '--reactant',
+                    metavar='.log',
+                    required=True,
+                    type=str,
+                    nargs='*',
+                    help='KIEs .log files for reactant structures')
+parser.add_argument('-ts',
+                    '--transition',
+                    metavar='.log',
+                    required=True,
+                    type=str,
+                    nargs='*',
+                    help='KIEs .log files for TS structures')
+parser.add_argument('--freq',
+                    required=False,
+                    action='store_true',
+                    help='consider first negative frequency contribution (def: False)')
+args = parser.parse_args()
+
+temp      = args.temp
+r_files   = args.reactant
+ts_files  = args.transition
+freq_calc = args.freq
+
+
+## Thermodynamical constants
+# http://physics.nist.gov/cuu/Constants/index.html
+_c       = 299792458.             # m * s-1
+_h       = 6.62607015e-34         # J * s
+_kB      = 1.380649e-23           # J * K-1
+_NA      = 6.02214076e23          # mol-1
+_R       = _kB * _NA              # J * K-1 * mol-1
+
+rt       = _R * 1.e-3 * temp      # kJ * mol-1
+fq       = 100. * _c * _h / ( _kB * temp )
+
+
+## Read files
+gibs = re.compile( "TOTAL \(KJ/MOL\):[\ ]+([0-9.-]+)" )
+freq = re.compile( "Harmonic Frequencies.*\s*[\ ](-[0-9.]+)" )
+
+rh_gibs = []
+rd_gibs = []
+th_gibs = []
+td_gibs = []
+th_wign = []
+td_wign = []
+
+# reactant
+for f in r_files:
+    data = open(f).read()
+    gibs_finds = gibs.findall(data)
+    rh_gibs.append(float(gibs_finds[0]))
+    rd_gibs.append(float(gibs_finds[1]))
+# TS
+for f in ts_files:
+    data = open(f).read()
+    gibs_finds = gibs.findall(data)
+    th_gibs.append(float(gibs_finds[0]))
+    td_gibs.append(float(gibs_finds[1]))
+    freq_finds = freq.findall(data)
+    th_wign.append( 1. + ( ( float(freq_finds[0]) * fq ) ** 2 ) / 24. )
+    td_wign.append( 1. + ( ( float(freq_finds[1]) * fq ) ** 2 ) / 24. )
+
+
+## Calculate KIEs
+kie = []
+for i in range(len(r_files)):
+    for j in range(len(ts_files)):
+        kie.append( m.exp( ( td_gibs[j] - rd_gibs[i] - th_gibs[j] + rh_gibs[i] ) / rt ) )
+        if freq_calc: kie[-1] *= th_wign[j] / td_wign[j]
+
+n    = .0
+mean = .0
+stdv = .0
+for i in kie:
+    n    += 1.
+    mean += i
+    stdv += i * i
+mean /= n
+stdv = m.sqrt( m.fabs( stdv / n - mean * mean ) )
+
+## Results
+print("#           KIE            stdev")
+print("{:>15.8f}  {:>15.8f}".format( mean, stdv ))

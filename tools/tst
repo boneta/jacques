@@ -1,0 +1,80 @@
+#!/usr/bin/env python2
+
+# Description: Connect free energy barriers and kinetic using TST
+# Last update: 22-12-2020
+
+import sys
+import math as m
+
+
+## Transition State Theory Calculator ###############################
+# by Sergio Boneta
+
+# Based On:
+# Watney, J. B.; Soudackov, A. V.; Wong, K. F.; Hammes-Schiffer, S.
+# Calculation of the transition state theory rate constant for a general
+# reaction coordinate: Application to hydride transfer in an enzyme.
+# Chem. Phys. Lett. 2006, 418 (1–3), 268–271.
+# https://doi.org/10.1016/j.cplett.2005.10.129
+
+
+## CONSTANTS ########################################################
+# http://physics.nist.gov/cuu/Constants/index.html
+_c       = 299792458.             # m * s-1
+_NA      = 6.02214076e23          # mol-1
+_kb      = 1.380649e-23           # J * K-1
+_h       = 6.62607015e-34         # J * s
+
+_cal2J   = 4.1868                 # cal -> J
+_J2Kcal  = 0.0002388459           # J -> Kcal
+
+
+## TST Calculator ###################################################
+print "-- TST Calculator --"
+print ""
+
+# check for empty argument
+try:
+    sys.argv[1]
+except IndexError:
+    print "Argument needed: 'G' or 'k'"
+    print "   G    calculate Free Energy Barrier from a rate constant at a given temperature (def: 298.15K)"
+    print "   k    calculate rate constant from a Free Energy Barrier at a given temperature (def: 298.15K)"
+    sys.exit()
+
+def get_temp():
+    t = raw_input("Temperature: " ) or str(298.15)
+    t = t.replace(" ","")
+    if t[-1].upper() == 'C':
+        t = float(t[:-1]) + 273.15
+    elif t[-1].upper() == ('K'):
+        t = float(t[:-1])
+    elif t[-1].upper() == 'F':
+        t = ( float(t[:-1]) + 459.67 ) * 5/9
+    else:
+        t = float(t)
+    return t
+
+# calculate free energy (dG) from rate constant
+if sys.argv[1].upper() == 'G' :
+    temp = get_temp()
+    rate = float(raw_input("Rate constant (s-1): "))
+    beta = 1/( _kb*_J2Kcal * temp )
+    G = m.log( rate * beta * _h*_J2Kcal ) / -beta * _NA
+    print ""
+    print "Free Energy Barrier (Kcal/mol):"
+    print G
+
+# calculate rate constant from free energy (dG)
+elif sys.argv[1].lower() == 'k' :
+    temp = get_temp()
+    G = float(raw_input("G (kcal/mol): "))
+    beta = 1/( _kb*_J2Kcal * temp )
+    rate = m.exp( G * -beta / _NA ) / ( beta * _h*_J2Kcal )
+    print ""
+    print "Rate Constant (s-1):"
+    print rate
+
+else :
+    print "Wrong argument. Needed: 'G' or 'k'"
+    sys.exit()
