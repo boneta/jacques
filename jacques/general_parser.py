@@ -30,6 +30,8 @@ def parser(mode=None):
     '''
 
     mode = mode.lower()
+    mode_list = ('sp', 'mini', 'locate', 'md', 'interaction',
+                 'kie', 'irc', 'pes', 'scan', 'pmf', 'corr')
 
     # custom argparse to include help
     class MyParser(argparse.ArgumentParser):
@@ -40,23 +42,35 @@ def parser(mode=None):
     h=  " ##################  JACQUES  ##################\n"
     h=h+" -- Friendly interface for QM/MM calculations --\n\n"
 
-    h=h+" USAGE:   jacques.py <mode> [[--option arg] ...]\n\n"
+    if mode not in mode_list: mode = "<mode>"
+    h=h+f" USAGE:   jacques.py {mode} [[--option arg] ...]\n\n"
     h=h+" OPTIONS:\n"
 
     p = MyParser(formatter_class=argparse.RawTextHelpFormatter, add_help=False)
 
     #  MODE  ----------------------------------------------------------
-    h=h+" <mode>                            main calculation mode\n\n"
+    if mode not in mode_list:
+        h=h+""" <mode>                            main calculation mode
+                                     sp            single point
+                                     mini          minimization/optimization
+                                     locate        locate and characterize minimum/TS
+                                     md            molecular dynamics
+                                     interaction   electrostatic/VdW interactions along trajectory
+                                     kie           kinetic isotope effects
+                                     irc           internal reaction coordinate from TS
+                                     scan          potential energy surface (1D)
+                                     pes           potential energy surface (2D)
+                                     pmf           potential of the mean force
+                                     corr          spline corrections
+            \n"""
     p.add_argument('mode', type=str, nargs='?',
-                   choices=('sp', 'mini', 'locate', 'md', 'interaction',
-                            'kie', 'irc', 'pes', 'scan', 'pmf', 'corr'))
+                   choices=mode_list)
 
     #  CONFIG FILE  ---------------------------------------------------
     h=h+" -f  <.jcq>                        file config in DYNAMON format\n\n"
     p.add_argument('-f', type=str)
 
-    if mode in ('sp', 'mini', 'locate', 'md', 'interaction',
-                'kie', 'irc', 'pes', 'scan', 'pmf', 'corr'):
+    if mode in mode_list:
         #  GENERAL  ---------------------------------------------------
         h=h+" -n | --name  <str>                basename for files\n"
         p.add_argument('-n', '--name', type=str)
