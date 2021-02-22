@@ -47,7 +47,9 @@ def parser(mode=None):
 
     #  MODE  ----------------------------------------------------------
     h=h+" <mode>                            main calculation mode\n\n"
-    p.add_argument('mode', type=str, nargs='?')
+    p.add_argument('mode', type=str, nargs='?',
+                   choices=('sp', 'mini', 'locate', 'md', 'interaction',
+                            'kie', 'irc', 'pes', 'scan', 'pmf', 'corr'))
 
     #  CONFIG FILE  ---------------------------------------------------
     h=h+" -f  <.jcq>                        file config in DYNAMON format\n\n"

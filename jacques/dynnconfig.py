@@ -277,8 +277,7 @@ class DynnConfig:
 
         for c in self.constr[0:n]:
             if c['dinit'] is None:
-                sys.stdout.write("ERROR: Not 'dinit' defined for constraint \n")
-                sys.exit(1)
+                sys.exit("ERROR: Not 'dinit' defined for constraint \n")
             if c['step'] is None: c['step'] = step
             # dinit & dend
             if c['dend'] is not None:
@@ -290,8 +289,7 @@ class DynnConfig:
                 elif c['step'] is not None:
                     c['n'] = m.ceil(diff/c['step'])
             elif c['n'] is None:
-                sys.stdout.write("ERROR: Not 'n' defined for constraint \n")
-                sys.exit(1)
+                sys.exit("ERROR: Not 'n' defined for constraint \n")
 
     @staticmethod
     def _swap_constrtype(c):
@@ -326,22 +324,17 @@ class DynnConfig:
 
         # check correct import of JACQUES
         if not jacques_import:
-            sys.stdout.write("ERROR: JACQUES could not be imported\n")
-            sys.exit(1)
+            sys.exit("ERROR: JACQUES could not be imported\n")
 
         # check fundamental parameters
         if self.mode is None:
-            sys.stdout.write("ERROR: Missing MODE\n")
-            sys.exit(1)
+            sys.exit("ERROR: Missing MODE\n")
         if self.opt['exe'] is None:
-            sys.stdout.write("ERROR: Missing EXE\n")
-            sys.exit(1)
+            sys.exit("ERROR: Missing EXE\n")
         if self.opt['coord'] is None:
-            sys.stdout.write("ERROR: Missing COORD\n")
-            sys.exit(1)
+            sys.exit("ERROR: Missing COORD\n")
         if self.opt['sys'] is None and self.opt['bin'] is None and self.opt['sele'] is None:
-            sys.stdout.write("ERROR: Missing topology {SYS,BIN,SELE}\n")
-            sys.exit(1)
+            sys.exit("ERROR: Missing topology {SYS,BIN,SELE}\n")
 
         mode   = self.mode
         name   = self.name
@@ -454,13 +447,10 @@ class DynnConfig:
 
         # FREE ENERGY -----------------------------------------------------
         elif mode in ('pmf'):
-            print("Mode not implemented yet")
-            sys.exit(1)
+            sys.exit("Mode not implemented yet")
         # CORRECTION ------------------------------------------------------
         elif mode in ('corr'):
-            print("Mode not implemented yet")
-            sys.exit(1)
+            sys.exit("Mode not implemented yet")
         # UNKNOWN ---------------------------------------------------------
         else:
-            sys.stdout.write("ERROR: Unkown mode '{}'\n".format(mode))
-            sys.exit(1)
+            sys.exit(f"ERROR: Unkown mode '{mode}'\n")
