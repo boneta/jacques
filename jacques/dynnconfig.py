@@ -277,7 +277,7 @@ class DynnConfig:
 
         for c in self.constr[0:n]:
             if c['dinit'] is None:
-                sys.exit("ERROR: Not 'dinit' defined for constraint \n")
+                sys.exit("ERROR: Not 'dinit' defined for constraint")
             if c['step'] is None: c['step'] = step
             # dinit & dend
             if c['dend'] is not None:
@@ -289,7 +289,7 @@ class DynnConfig:
                 elif c['step'] is not None:
                     c['n'] = m.ceil(diff/c['step'])
             elif c['n'] is None:
-                sys.exit("ERROR: Not 'n' defined for constraint \n")
+                sys.exit("ERROR: Not 'n' defined for constraint")
 
     @staticmethod
     def _swap_constrtype(c):
@@ -324,17 +324,17 @@ class DynnConfig:
 
         # check correct import of JACQUES
         if not jacques_import:
-            sys.exit("ERROR: JACQUES could not be imported\n")
+            sys.exit("ERROR: JACQUES could not be imported")
 
         # check fundamental parameters
         if self.mode is None:
-            sys.exit("ERROR: Missing MODE\n")
+            sys.exit("ERROR: Missing MODE")
         if self.opt['exe'] is None:
-            sys.exit("ERROR: Missing EXE\n")
+            sys.exit("ERROR: Missing EXE")
         if self.opt['coord'] is None:
-            sys.exit("ERROR: Missing COORD\n")
+            sys.exit("ERROR: Missing COORD")
         if self.opt['sys'] is None and self.opt['bin'] is None and self.opt['sele'] is None:
-            sys.exit("ERROR: Missing topology {SYS,BIN,SELE}\n")
+            sys.exit("ERROR: Missing topology {SYS,BIN,SELE}")
 
         mode   = self.mode
         name   = self.name
@@ -453,4 +453,4 @@ class DynnConfig:
             sys.exit("Mode not implemented yet")
         # UNKNOWN ---------------------------------------------------------
         else:
-            sys.exit(f"ERROR: Unkown mode '{mode}'\n")
+            sys.exit(f"ERROR: Unkown mode '{mode}'")

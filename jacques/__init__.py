@@ -31,7 +31,7 @@ try:
     with open(jacques_path+'/../settings.json', 'r') as _file:
         settings = json.loads(_file.read())
 except:
-    sys.exit("ERROR: Problems reading 'settings.json' file \n")
+    sys.exit("ERROR: Problems reading 'settings.json' file")
 
 # default queues names
 queues_def = settings['queues']

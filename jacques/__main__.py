@@ -20,7 +20,7 @@ from jacques.dynnconfig     import DynnConfig
 def main():
     # check no argument
     if len(sys.argv) <= 1:
-        sys.exit("ERROR: No input arguments. Use -h for help.\n")
+        sys.exit("ERROR: No input arguments. Use -h for help.")
 
     # parser
     p = parser(sys.argv[1])

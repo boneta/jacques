@@ -47,7 +47,7 @@ if __name__ == '__main__':
     if len(sys.argv)>1 and sys.argv[1].lower() in ("tools", "t"):
         tools_path = jacques_path+'/../tools/'
         if len(sys.argv) == 2:
-            sys.exit("ERROR: No tool specified. Use -h for help.\n")
+            sys.exit("ERROR: No tool specified. Use -h for help.")
         elif sys.argv[2].lower() in ("-h", "--help"):
             with open(tools_path+'README.md', 'r') as helpfile:
                 sys.stdout.writelines([line for line in helpfile.readlines() if "``" not in line])
