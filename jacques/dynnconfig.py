@@ -281,6 +281,9 @@ class DynnConfig:
                 diff = float(c['dend']) - float(c['dinit'])
                 if not c['n']:
                     c['n'] = m.ceil(diff/c['step'])
+                    if c['n'] < 0:
+                        c['n'] = - c['n']
+                        c['step'] = - c['step']
                 else:
                     c['step'] = round(diff/c['n'], 3)
             # dinit & n [& step] -> dend
