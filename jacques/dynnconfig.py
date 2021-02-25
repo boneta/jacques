@@ -43,6 +43,8 @@ class DynnConfig:
 
         Methods
         -------
+        __init__(file)
+            Initialization of empty lists and None dictionaries
         read_file(file)
             read options from DYNAMON formatted file
         write(file, constr)
@@ -98,13 +100,20 @@ class DynnConfig:
     constr_keys_up  = {i.upper() for i in constr_keys}
     constr_keys_low = {i.lower() for i in constr_keys}
 
-    def __init__(self):
+    def __init__(self, file=None):
+        '''
+            Initialization of empty lists and None dictionaries
 
-        '''Initialization of empty lists and None dictionaries'''
+            Parameters
+            ----------
+            file : str, optional
+                read options from file
+        '''
 
         self.opt    = self.opt_empty.copy()
         self.atoms  = []
         self.constr = []
+        if file is not None: self.read_file(file)
 
     @property
     def mode(self):
@@ -281,9 +290,7 @@ class DynnConfig:
                 diff = float(c['dend']) - float(c['dinit'])
                 if not c['n']:
                     c['n'] = m.ceil(diff/c['step'])
-                    if c['n'] < 0:
-                        c['n'] = - c['n']
-                        c['step'] = - c['step']
+                    if c['n'] < 0: c['n'], c['step'] = -c['n'], -c['step']
                 else:
                     c['step'] = round(diff/c['n'], 3)
             # dinit & n [& step] -> dend
@@ -292,7 +299,7 @@ class DynnConfig:
             # dend & n [& step] -> dinit
             elif c['dend']:
                 c['dinit'] = float(c['dend']) - float(c['step'])*int(c['n'])
-        
+
     @staticmethod
     def _swap_constrtype(c):
         '''
