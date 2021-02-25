@@ -49,7 +49,7 @@ class DynnConfig:
             write formatted options to screen or file
         def_opt(mode, options_set)
             assign default options for a specific mode
-        resolve_constr(n, step)
+        resolve_constr(n_constr, step)
             Resolve the iteration parameters for the first n constraint
         guess_exe_bin(dynamon_path)
             guess either executable or binary from the other
@@ -254,43 +254,42 @@ class DynnConfig:
                         if option in self.constr_keys[1:] and c[option] is None:
                             c[option] = opt_settings[def_dic]['constr'][option]
 
-    def resolve_constr(self, n=None, step=0.05):       #TODO: take dcrd as dinit
+    def resolve_constr(self, n_constr=None, step=0.05):       #TODO: take dcrd as dinit
         '''
             Resolve the iteration parameters for the
-            first n constraint: n, dinit and step
+            first nth constraint: n, dinit, step & dend
 
-            Parameters to take into account:
-                n, dinit, dend, step
-
-            Resolution priority order:
-                1. dinit & n [& step]
-                2. dinit & dend & step
-                3. dinit & dend & n
+            At least three are needed to resolve the fourth,
+            altough 'step' can be taken from default.
+            In case of conflict, 'step' is overwritten.
 
             Parameters
             ----------
-            n : int
+            n_constr : int
                 number of constraints to resolve, 'None' for all
             step : float
                 default step lenght if not found
         '''
 
-        for c in self.constr[0:n]:
-            if c['dinit'] is None:
-                sys.exit("ERROR: Not 'dinit' defined for constraint")
-            if c['step'] is None: c['step'] = step
-            # dinit & dend
-            if c['dend'] is not None:
+        for nth, c in enumerate(self.constr[0:n_constr]):
+            if not c['step']: c['step'] = step
+            # check enough defined parameters to solve
+            if (c['dinit'], c['dend'], c['n']).count(None) > 1:
+                raise ValueError(f"Not enough parameters specified to resolve constraint {nth+1}")
+            # dinit & dend -> n [& step]
+            if c['dinit'] and c['dend']:
                 diff = float(c['dend']) - float(c['dinit'])
-                # & n
-                if c['n'] is not None:
-                    c['step'] = round(diff/c['n'], 3)
-                # & step
-                elif c['step'] is not None:
+                if not c['n']:
                     c['n'] = m.ceil(diff/c['step'])
-            elif c['n'] is None:
-                sys.exit("ERROR: Not 'n' defined for constraint")
-
+                else:
+                    c['step'] = round(diff/c['n'], 3)
+            # dinit & n [& step] -> dend
+            elif c['dinit']:
+                c['dend'] = float(c['dinit']) + float(c['step'])*int(c['n'])
+            # dend & n [& step] -> dinit
+            elif c['dend']:
+                c['dinit'] = float(c['dend']) - float(c['step'])*int(c['n'])
+        
     @staticmethod
     def _swap_constrtype(c):
         '''
