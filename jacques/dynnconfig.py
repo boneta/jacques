@@ -271,6 +271,12 @@ class DynnConfig:
                 default step lenght if not found
         '''
 
+        # check number of constraints
+        if not n_constr:
+            n_constr = self.nconstr
+        elif n_constr > self.nconstr:
+            raise ValueError(f"More contraints requested to resolve ({n_constr}) than defined ({self.nconstr})")
+
         for nth, c in enumerate(self.constr[0:n_constr]):
             if not c['step']: c['step'] = step
             # check enough defined parameters to solve
