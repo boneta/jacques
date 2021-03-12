@@ -4,7 +4,8 @@
   PyMOL plug-in with DYNAMON functionalities
   ==========================================
 
-  Manage atom/residue selections in fDynamo/DYNAMON format
+  Add extended capabilities to the PyMOL molecular viewer
+  to manage files in fDynamo/DYNAMON formats
 
   - Write QM atoms and NOFIX residues from selection:
         write_qm  dynn_file [, selection ]
@@ -13,20 +14,25 @@
   - Load/read extended file formats:  load  filename [...]
         .crd   -  fDynamo's coordinates file
         .dynn  -  DYNAMON options/selection file
+
+
+  by Sergio Boneta Martinez
+  GPLv3 2021
+
 """
 
 __version__ = '0.1'
+
+# PDB Strict formatting
+# ATOM/HETATM  serial  name   altLoc  resName  chainID  resSeq  iCode  x       y     z      occupancy  tempFactor  segment  element  charge
+# 1-6          7-11    13-16  17      18-20    22       23-26   27     31-38  39-46  47-54  55-60      61-66       73-76    77-78    79-80
 
 
 ##  DEPENDENCIES  #####################################################
 
 import os
 from pymol import cmd, importing
-
-
-##  DEFAULT OPTIONS  ##################################################
-
-_selection_def = 'sele'
+from pymol.chempy import atomic_number
 
 
 ##  FUNCTIONS  ########################################################
@@ -118,9 +124,62 @@ def load_ext(filename, object='', state=0, format='', finish=1,
 
         # fDynamo's crd coordinates
         if format.lower() == "crd":
+
+            # read file as list of strings
+            with open(filename, "rt") as f:
+                crd_file = f.readlines()
+
+            # convert atoms to pdb format
+            atomic_number_inv = { n:elem for elem, n in atomic_number.items() }
+            pdb_file = []
+            a = { 'ATOM'       : "ATOM",
+                  'serial'     : 0,
+                  'name'       : "",
+                  'altLoc'     : "",
+                  'resName'    : "",
+                  'chainID'    : "",
+                  'resSeq'     : 0,
+                  'iCode'      : "",
+                  'x'          : 0.0,
+                  'y'          : 0.0,
+                  'z'          : 0.0,
+                  'occupancy'  : 0.0,
+                  'tempFactor' : 0.0,
+                  'segment'    : "",
+                  'element'    : "",
+                  'charge'     : "" }
+
+            for line in crd_file:
+                if line.startswith("!"): continue
+                line = line.split("!")[0].split()   # to list and remove trailing comments
+
+                if line[0].lower() == "subsystem":
+                    a['segment'] = str(line[2])
+                elif line[0].lower() == "residue":
+                    a['resSeq']  = str(line[1])
+                    a['resName'] = str(line[2])
+                elif len(line) != 6:
+                    continue
+                else:
+                    a['serial']  = int(line[0])
+                    a['name']    = str(line[1])
+                    a['element'] = atomic_number_inv[int(line[2])]
+                    a['x']       = float(line[3])
+                    a['y']       = float(line[4])
+                    a['z']       = float(line[5])
+                    if a['name'] == "OXT": continue     # ignore OXT atom with usually weird coordinates
+                    if len(a['name']) == 3: a['name'] = ' '+a['name']     # correct alignment of atom name
+                    # format pdb
+                    formatted_line = "{:<6s}{:>5d} {:^4s}{:1s}{:>3s} {:1s}{:>4.4}{:1s}   {:>8.3f}{:>8.3f}{:>8.3f}{:>6.2f}{:>6.2f}      {:<4s}{:>2s}{:<2s}\n" \
+                        .format(a['ATOM'], a['serial'], a['name'], a['altLoc'], a['resName'], a['chainID'], str(a['resSeq']), a['iCode'],
+                                a['x'], a['y'], a['z'], a['occupancy'], a['tempFactor'], a['segment'], a['element'], a['charge'])
+                    pdb_file.append(formatted_line)
+
+            # load as pdb string
+            pdb_whole = "".join(pdb_file)
+            cmd.read_pdbstr(pdb_whole, name)
+
             print(f" DYNAMON: \"{filename}\" loaded as \"{name}\"")
-            print(f" DYNAMON: Loading .crd not yet implemented")
-            return
 
         # original load function
         else:
@@ -130,11 +189,11 @@ def load_ext(filename, object='', state=0, format='', finish=1,
 
 ##  WRAPPERS  #########################################################
 
-def write_qm(dynn_file, selection=_selection_def):
+def write_qm(dynn_file, selection="sele"):
     """Write QM atom selection to file"""
     write_sele("QM", selection, dynn_file, resolution='atom')
 
-def write_nofix(dynn_file, selection=_selection_def):
+def write_nofix(dynn_file, selection="sele"):
     """Write NOFIX residue selection to file"""
     write_sele("NOFIX", selection, dynn_file, resolution='residue')
 
