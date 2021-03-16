@@ -118,12 +118,63 @@ def load_ext(filename, object='', state=0, format='', finish=1,
 
         # DYNAMON dynn options/selection
         if format.lower() == "dynn":
+
             print(f" DYNAMON: reading \"{filename}\"")
-            print(f" DYNAMON: Loading .dynn not yet implemented")
-            return
+
+            # read file as list of strings
+            with open(filename, "rt") as f:
+                dynn_file = f.readlines()
+                # remove empty lines and space-split
+                dynn_file = [line.split() for line in dynn_file if line.strip()]
+
+            i = 0
+            while i < len(dynn_file):
+                if dynn_file[i][0].upper() in ("QM", "NOFIX"):
+                    section = dynn_file[i][0].upper()
+                    i += 1
+                    # read whole selection to dict of dict of list
+                    sele = dict()
+                    segi = ""
+                    resi = ""
+                    while dynn_file[i][0].upper() != section and i < len(dynn_file):
+                        subsect = dynn_file[i][0].upper()
+                        select  = dynn_file[i][1].upper()
+                        if subsect == "S":
+                            segi = select
+                            resi = ""
+                            sele[select] = dict()
+                        elif subsect == "R":
+                            resi = select
+                            sele[segi][select] = []
+                        elif subsect == "A":
+                            sele[segi][resi].append(select)
+                        i += 1
+
+                    # build selection algebra
+                    sele1_list = []
+                    for segi, resdict in sele.items():
+                        sele1 = f"segi {segi}"
+                        if resdict:
+                            sele1 += " & ("
+                            sele2_list = []
+                            for resi, namelist in resdict.items():
+                                sele2 = f"resi {resi}"
+                                if namelist:
+                                    sele2 += " & name "+"+".join(namelist)
+                                sele2_list.append(sele2)
+                            sele1 += " | ".join(sele2_list)+" )"
+                        sele1_list.append(sele1)
+                    sele_final = " | ".join(sele1_list)
+
+                    # selection command
+                    cmd.select(section, sele_final, 0, 1)
+                    natoms = cmd.count_atoms(section)
+                    print(f" DYNAMON: selection \"{section}\" defined with {natoms} atoms.")
+                i += 1
+
 
         # fDynamo's crd coordinates
-        if format.lower() == "crd":
+        elif format.lower() == "crd":
 
             # read file as list of strings
             with open(filename, "rt") as f:
