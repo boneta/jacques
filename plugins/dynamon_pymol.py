@@ -32,7 +32,7 @@ __version__ = '0.1'
 
 import os
 from pymol import cmd, importing
-from pymol.chempy import atomic_number
+from chempy import atomic_number
 
 
 ##  FUNCTIONS  ########################################################
