@@ -31,6 +31,8 @@ __version__ = '0.1'
 ##  DEPENDENCIES  #####################################################
 
 import os
+import fileinput
+
 from pymol import cmd, importing
 from chempy import atomic_number
 
@@ -39,7 +41,7 @@ from chempy import atomic_number
 
 def write_sele(section, selection, dynn_file, resolution='atom'):
     """
-        Write selection to file (append)
+        Append selection to file and overwrite section if existing
 
         Parameters
         ----------
@@ -54,6 +56,8 @@ def write_sele(section, selection, dynn_file, resolution='atom'):
     """
 
     #TODO: make it clever
+
+    section = section.upper()
 
     # get list of sele atoms with dictionary of properties
     natoms = 0
@@ -72,28 +76,35 @@ def write_sele(section, selection, dynn_file, resolution='atom'):
 
     print(f" DYNAMON: Number of atoms in \"{selection}\": {natoms}")
 
-    # write to file
-    f = open(dynn_file, 'at+')
+    # read file and delete section if existing
+    try:
+        in_section = False
+        for line in fileinput.input(dynn_file, inplace=True):
+            if line.strip() == section:
+                in_section = not in_section
+            elif not in_section:
+                print(line, end='')
+    except FileNotFoundError:
+        pass
 
-    f.write(f"\n{section.upper()}\n")
+    # write new section
+    with open(dynn_file, 'at+') as f:
+        f.write(f"\n{section}\n")
+        segis = sorted(list(set([a['segi'] for a in atoms])))   # unique subsystem list
+        for segi in segis:
+            f.write(" "*4+f"S {segi}\n")
+            if resolution == 'subsystem': continue
 
-    segis = sorted(list(set([a['segi'] for a in atoms])))   # unique subsystem list
-    for segi in segis:
-        f.write(" "*4+f"S {segi}\n")
-        if resolution == 'subsystem': continue
+            resis = sorted(list(set([a['resi'] for a in atoms if a['segi']==segi])))
+            for resi in resis:
+                f.write(" "*8+f"R {resi}\n")
+                if resolution == 'residue': continue
 
-        resis = sorted(list(set([a['resi'] for a in atoms if a['segi']==segi])))
-        for resi in resis:
-            f.write(" "*8+f"R {resi}\n")
-            if resolution == 'residue': continue
+                names = sorted(list(set([a['name'] for a in atoms if a['segi']==segi and a['resi']==resi])))
+                for name in names:
+                    f.write(" "*12+f"A {name}\n")
+        f.write(f"{section}\n")
 
-            names = sorted(list(set([a['name'] for a in atoms if a['segi']==segi and a['resi']==resi])))
-            for name in names:
-                f.write(" "*12+f"A {name}\n")
-
-    f.write(f"{section.upper()}\n\n")
-
-    f.close()
     print(f" DYNAMON: {section} written to \"{os.path.abspath(dynn_file)}\"")
 
 
@@ -171,7 +182,6 @@ def load_ext(filename, object='', state=0, format='', finish=1,
                     natoms = cmd.count_atoms(section)
                     print(f" DYNAMON: selection \"{section}\" defined with {natoms} atoms.")
                 i += 1
-
 
         # fDynamo's crd coordinates
         elif format.lower() == "crd":
