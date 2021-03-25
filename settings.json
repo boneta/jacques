@@ -34,7 +34,7 @@
             "ts"               : "False"
           },
         "md" : {
-            "name"             : "dyn",
+            "name"             : "md",
             "temp"             : 298.0,
             "md_step"          : 0.001,
             "equilibration"    : 0,
