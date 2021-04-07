@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+
+# Description: Concatenate GROMACS' gro files
+# Last update: 07-04-2021
+
+import sys
+import argparse
+
+
+def grocat(gro_files, out_file=None):
+    """
+        Concatenate GROMACS' gro files
+
+        Parameters
+        ----------
+        gro_files : list of str
+            ordered list of gro files
+        out_file : str, optional
+            output file name, if None the first gro file is overwritten
+    """
+
+    if not out_file: out_file = gro_files[0]
+
+    # read all gro input files (memory intensive)
+    gro_data = []
+    natoms = 0
+    box_vectors = ''
+    for gro in gro_files:
+        sys.stdout.write("{} ".format(gro))
+        with open(gro, 'r') as f:
+            data = f.readlines()
+        natoms += int(data[1])
+        if not box_vectors: box_vectors = data[-1]
+        gro_data.extend(data[2:-1])
+
+    # write output file
+    sys.stdout.write("-> ")
+    with open(out_file, 'w') as f:
+        f.write("Concatenation of {}\n".format(" ".join(gro_files)))
+        f.write("{}\n".format(natoms))
+        f.write("".join(gro_data))
+        f.write("{}\n".format(box_vectors))
+    sys.stdout.write("{}\n".format(out_file))
+
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(prog='grocat',
+                                     description="Concatenate GROMACS' gro files")
+    parser.add_argument('files', metavar='.gro', type=str, nargs='+',
+                        help='coordinates file')
+    parser.add_argument('-o', metavar='.gro', type=str, required=False,
+                        help='output file, if not provided it will be appended to the first input file')
+    args = parser.parse_args()
+
+    grocat(args.files, out_file=args.o)
+    sys.exit(0)

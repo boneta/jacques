@@ -2,9 +2,10 @@
 
 ### Structure manipulation
 ```
-  crd2pdb               convert structures from dynamo's crd to pdb
-  pdb2crd               convert structures from pdb to dynamo's crd
-  frdump                dump frames from a dcd trajectory
+  crd2pdb               Convert structures from dynamo's crd to pdb
+  pdb2crd               Convert structures from pdb to dynamo's crd
+  frdump                Dump frames from a dcd trajectory
+  grocat                Concatenate GROMACS's gro
 ```
 
 ### Corrections
@@ -19,9 +20,9 @@
   int2bfac              Transfer interaction data to a pdb as b-factor
 ```
 
-
 ### Misc
 ```
   tst                   Connect free energy barriers and kinetic using TST
   kie-combine           Combine fDynamo's .log to calculate KIEs
+  amber2opls.py         Convert dihedral parameters from AMBER to OPLS-AA
 ```
