@@ -68,7 +68,7 @@ def parser(mode=None):
 
     #  CONFIG FILE  ---------------------------------------------------
     h=h+" -f  <.jcq>                        file config in DYNAMON format\n\n"
-    p.add_argument('-f', type=str)
+    p.add_argument('-f', type=str, required=(mode in ('scan', 'pes', 'pmf', 'corr')))
 
     if mode in mode_list:
         #  GENERAL  ---------------------------------------------------
@@ -163,7 +163,7 @@ def parser(mode=None):
         h=h+" --kie_hess  <.dump>               hessian file\n\n"
         p.add_argument('--kie_hess', type=str)
 
-    #  MD  ------------------------------------------------------------
+    #  MD & PMF -------------------------------------------------------
     elif mode in ('md', 'pmf'):
         h=h+" {}:\n".format(mode.upper())
         h=h+" --temp  <float>                   temperature [k]\n"
@@ -178,6 +178,11 @@ def parser(mode=None):
         p.add_argument('--dcd_freq', type=int)
         h=h+" --vel  <.vel>                     input velocities file to read instad of generate (for continuations)\n\n"
         p.add_argument('--vel', type=str)
+
+    # dimensions
+    if mode in ('pmf', 'corr'):
+        h=h+" -d | --dim  <int>                 dimension, otherwise guessed from config file\n\n"
+        p.add_argument('-d', '--dim', type=int, default=0)
 
     #  VERSION AND HELP  ----------------------------------------------
     p.add_argument('-v',

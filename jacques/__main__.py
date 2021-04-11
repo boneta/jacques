@@ -13,7 +13,7 @@
 import sys
 
 from jacques                import queues_def, opt_def, dynamon_path
-from jacques.general_parser import parser
+from jacques._parser        import parser
 from jacques.dynnconfig     import DynnConfig
 
 
@@ -35,6 +35,8 @@ def main():
         if value == False: value = None
         if option in DynnConfig.opt_keys and value is not None:
             config.opt[option] = value
+        elif option == 'dim':
+            config.dim = option
     config.def_opt(config.mode, opt_def)
 
     # configure and launch calculation

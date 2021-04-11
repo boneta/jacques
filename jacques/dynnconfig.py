@@ -113,7 +113,9 @@ class DynnConfig:
         self.opt    = self.opt_empty.copy()
         self.atoms  = []
         self.constr = []
-        if file is not None: self.read_file(file)
+        self.dim    = 0
+        if file is not None:
+            self.read_file(file)
 
     @property
     def mode(self):
