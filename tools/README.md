@@ -25,4 +25,5 @@
   tst                   Connect free energy barriers and kinetic using TST
   kie-combine           Combine fDynamo's .log to calculate KIEs
   amber2opls.py         Convert dihedral parameters from AMBER to OPLS-AA
+  itp2dyn.py            Convert GROMACS's parameters to fDynamo's format
 ```
