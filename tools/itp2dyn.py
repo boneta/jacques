@@ -121,10 +121,14 @@ class DynamoTopology():
         if section not in self.sections or abs(action) != 1:
             raise ValueError
         ndx = self.raw_ndx[section]
-        if action == 1:
-            self.raw_top.insert(ndx[0]+1, text)
-        elif action == -1:
-            self.raw_top.insert(ndx[1], text)
+        for line in text.splitlines()[::-1]:
+            line += "\n"
+            # prepend
+            if action == 1:
+                    self.raw_top.insert(ndx[0]+1, line)
+            # append
+            elif action == -1:
+                self.raw_top.insert(ndx[1], line)
         self._update_ndx()
 
     def _update_ndx(self) -> None:
