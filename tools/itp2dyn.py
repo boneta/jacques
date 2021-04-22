@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Description: Convert parameters from GROMACS' .itp (AMBER/GAFF) to DYNAMO's .ff (OPLS)
-# Last update: 21-04-2021
+# Last update: 22-04-2021
 
 # Inspired from ParmEd (gromacstop.py)
 # https://github.com/ParmEd/ParmEd
@@ -90,6 +90,13 @@ class DynamoTopology():
     def __bool__(self):
         return bool(self.ff_file)
 
+    def __repr__(self):
+        return "".join(self.raw_top)
+
+    @property
+    def raw_str(self):
+        return str(self)
+
     def read_ff(self, ff_file:str) -> None:
         """Read fDynamo topology file (.ff)"""
 
@@ -156,10 +163,14 @@ class ffParameters():
             self.read_itp(file_inp)
         else:
             self.file_inp = ""
-    
+
     @property
     def molnames(self) -> list:
         return list(self.moleculetype.keys())
+
+    @property
+    def nmolec(self) -> int:
+        return len(self.moleculetype)
 
     def read_itp(self, file_inp:str, elem_simple:bool=False) -> None:
 
@@ -175,7 +186,7 @@ class ffParameters():
             nparam = len(param_list)
             msg = f"{section} -> Wrong nuber of parameters (file {file_inp}, line {nline+1})"
             if not nmin <= nparam <= nmax: raise ValueError(msg)
-        
+
         # process line by line
         attype_re = re.compile(r'[a-zA-Z]') if elem_simple else re.compile(r'.+')
         current_sele = None
@@ -263,7 +274,7 @@ class ffParameters():
                 param['charge'] = float(words[6])
                 param['mass'] = float(words[7])
                 self.moleculetype[current_molec]['atoms'][nr] = param
-            
+
             elif current_sele == 'bonds': # ---------------------------
                 param = { 'funct' : "",
                           'r' : "",
@@ -327,14 +338,14 @@ class ffParameters():
                 param['funct'] = funct
                 # append to general list only if new dihedral parameter
                 if len(param['phase']) == 1: self.moleculetype[current_molec]['dihedrals'][atoms] = param
-            
+
             elif current_sele == 'system':  # -------------------------
                 self.system = str(line.split(";")[0])  # remove comments
 
             elif current_sele == 'molecules':  # ----------------------
                 words = line.split(";")[0].split()  # remove comments and list
                 self.molecules[str(words[0])] = int(words[1])
-            
+
             elif current_sele in {'cmap', 'defaults', 'settles', 'exclusions',
                                   'nonbond_params', 'bondtypes', 'angletypes',
                                   'dihedraltypes', 'cmaptypes', 'pairtypes'}:
@@ -356,7 +367,7 @@ class ffParameters():
         for attype, atom in self.atomtypes.items():
             self.opls['atomtypes'][attype.upper()] = [atom['atnum'], atom['sigma']*10, atom['epsilon']]
 
-        # atoms per residue and unified bonds/angles/dihedrals/impropers 
+        # atoms per residue and unified bonds/angles/dihedrals/impropers
         param = DihedralParam()
         for molname, molec in self.moleculetype.items():
             # atoms in residue
@@ -430,7 +441,7 @@ class ffParameters():
 
     def write_dynamo(self, file_out:str=None, only_missing:bool=False, ff_file:str=None) -> None:
 
-        #TODO: less redundant method between new file and append 
+        #TODO: less redundant method between new file and append
 
         def _check_notfound(atoms):
             return " "*4+"! WARNING: Parameter not found" if atoms in self.notfound else ""
@@ -478,7 +489,7 @@ class ffParameters():
                     f.extend("\n!"+"-"*79+"\n" +
                             "Residue {}\n".format(resname) +
                             "!"+"-"*79+"\n" +
-                            "! # Atoms, bonds and impropers\n" + 
+                            "! # Atoms, bonds and impropers\n" +
                             "{:>3d}{:>3d}{:>3d}\n".format(len(atoms),0,0))
                     for name, atom in atoms.items():
                         f.extend("{:<4s}  {:<4s} {:>6.2f}\n".format(name, *atom))
@@ -528,7 +539,8 @@ class ffParameters():
                 f.extend("End\n")
 
             f.extend("\nEnd\nEnd\n")
-        
+            f = "".join(f)
+
         # EXISTING FF TOPOLOGY ----------------------------------------
         else:
             ff = DynamoTopology(ff_file)
@@ -560,14 +572,14 @@ class ffParameters():
                 f.extend("{:<4s} {:<4s} {:<4s} {:>5.1f}  {:>8.2f} {:<10s}\n".format(
                          *atoms, *angle, _check_notfound(atoms)))
             ff.raw_append('angles', "".join(f))
-  
+
             # dihedrals
             f = ["! Additional parameters\n"]
             for atoms, dihedral in self.opls['dihedrals'].items():
                 f.extend("{:<4s} {:<4s} {:<4s} {:<4s} {:>7.3f} {:>7.3f} {:>7.3f} {:>7.3f} {:>10s}\n".format(
                          *atoms, *dihedral[:-1], _check_notfound(atoms)))
             ff.raw_append('dihedrals', "".join(f))
-  
+
             # impropers
             f = ["! Additional parameters\n"]
             for atoms, improper in self.opls['impropers'].items():
@@ -575,13 +587,13 @@ class ffParameters():
                          *atoms, *improper[:-1], _check_notfound(atoms)))
             ff.raw_append('impropers', "".join(f))
 
-            f = ff.raw_top
+            f = ff.raw_str
 
         if file_out:
             with open(file_out, 'wt') as outfile:
-                outfile.write("".join(f))
+                outfile.write(f)
         else:
-            sys.stdout.write("".join(f))
+            sys.stdout.write(f)
 
 
 ##  MAIN  #############################################################
@@ -596,7 +608,7 @@ if __name__ == '__main__':
                         help='input GROMACS parameters file')
     parser.add_argument('-o', metavar='.ff', type=str,
                         help='output DYNAMO parameters file (def: dynamo.ff)')
-    parser.add_argument('-ff', metavar='.ff', type=str, 
+    parser.add_argument('-ff', metavar='.ff', type=str,
                         help='optional DYNAMO topology file to include the new parameters')
     parser.add_argument("-miss", metavar="", nargs="*",
                         help='reference DYNAMO error message to convert only missing parameters (file or piped)')
@@ -612,7 +624,8 @@ if __name__ == '__main__':
     param = ffParameters()
     for itp_file in itp_files:
         param.read_itp(itp_file, elem_simple=missing)
-    sys.stderr.write(f"NOTE: {len(param.molnames)} molecules found ->", *param.molnames)
+    if param.nmolec > 1:
+        sys.stderr.write(f"NOTE: {param.nmolec} molecules found -> {' '.join(param.molnames)}\n")
     param.gen_opls()
     if missing: param.read_miss(missing)
     param.write_dynamo(out_file, only_missing=missing, ff_file=ff_file)
