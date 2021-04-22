@@ -411,7 +411,8 @@ class ffParameters():
             line = line.split(":")[1].split()
             if ptype in ('bond', 'angle', 'dihedral', 'improper'):
                 self.missing[ptype+'s'].add(tuple(line))
-                self.missing[ptype+'s'].discard(tuple(line[::-1]))  # remove inverse
+                # remove inverse if not palindromic
+                if line != line[::-1]: self.missing[ptype+'s'].discard(tuple(line[::-1]))
             else:
                 raise NameError(f'Unknown missing parameter type: {ptype}')
 
