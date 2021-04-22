@@ -125,9 +125,9 @@ class DynamoTopology():
             keyword = line[0].split()[0].lower()
             content = line[0].split()
             comment = "!".join(line[1:])
-            if keyword == 'end': # ------------------------------------
+            if keyword == 'end' and current_sect: # -------------------
                 current_sect = None
-            if keyword in self.sections or keyword == 'types': # ------
+            elif keyword in self.sections or keyword == 'types': # ----
                 current_sect = keyword
             elif current_sect == 'types': # ---------------------------
                 attype = str(content[0]).upper()
@@ -167,6 +167,9 @@ class DynamoTopology():
                 param = { 'v' : [float(v) for v in content[4:]],
                           'comment' : comment }
                 self.top[current_sect][atoms] = param
+
+            elif keyword == 'parameters':
+                continue
 
     def _update_ndx(self) -> None:
         """Update line indexes of raw stored topology"""
