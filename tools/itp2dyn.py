@@ -91,24 +91,97 @@ class DynamoTopology():
         return bool(self.ff_file)
 
     def __repr__(self):
-        return "".join(self.raw_top)
+        return self.raw_str
 
     @property
     def raw_str(self):
-        return str(self)
+        return "".join(self.raw_top)
 
-    def read_ff(self, ff_file:str) -> None:
+    def read_ff(self, ff_file:str, read_format:bool=True) -> None:
         """Read fDynamo topology file (.ff)"""
-
-        #TODO: read beyond raw format
-
         self.__init__()
         self.ff_file = ff_file
+        # read file as raw
+        self._read_ff_raw(ff_file)
+        # read file comprehensively
+        if read_format:
+            self._read_ff_format()
 
-        # read raw file
+    def _read_ff_raw(self, ff_file:str) -> None:
+        """Read fDynamo topology file to raw format (list of lines)"""
         with open(ff_file, 'rt') as f:
             self.raw_top = f.readlines()
-        self._update_ndx()
+            self._update_ndx()
+
+    def _read_ff_format(self, ff_raw:list=None) -> None:
+        """Read fDynamo topology comprehensively"""
+        ff_raw = ff_raw if ff_raw is not None else self.raw_top
+        # remove comment lines and blank lines
+        topology = [line.strip() for line in ff_raw if line.strip() and not line.startswith("!")]
+        # read line by line and assign depending on the section
+        current_sect = None
+        for line in topology:
+            line = line.split("!")
+            keyword = line[0].split()[0].lower()
+            content = line[0].split()
+            comment = "!".join(line[1:])
+            if keyword == 'end': # ------------------------------------
+                current_sect = None
+            if keyword in self.sections or keyword == 'types': # ------
+                current_sect = keyword
+            elif current_sect == 'types': # ---------------------------
+                attype = str(content[0]).upper()
+                param = { 'atnum' : int(content[1]),
+                          'sigma' : float(content[2]),
+                          'epsilon' : float(content[3]),
+                          'comment' : comment }
+                self.top['atomtypes'][attype] = param
+
+            elif current_sect == 'residues': # ------------------------
+                if keyword == 'residue':
+                    resname = content[1].upper()
+                    self.top['residues'][resname] = dict()
+
+            elif current_sect == 'variants': # ------------------------
+                pass
+
+            elif current_sect == 'links': # ---------------------------
+                pass
+
+            elif current_sect == 'bonds': # ---------------------------
+                atoms = tuple(str(a).upper() for a in content[:2])
+                param = { 'k' : float(content[2]),
+                          'r' : float(content[3]),
+                          'comment' : comment }
+                self.top['bonds'][atoms] = param
+
+            elif current_sect == 'angles': # --------------------------
+                atoms = tuple(str(a).upper() for a in content[:3])
+                param = { 'k' : float(content[3]),
+                          'theta' : float(content[4]),
+                          'comment' : comment }
+                self.top['angles'][atoms] = param
+
+            elif current_sect in ('dihedrals', 'impropers'): # --------
+                atoms = tuple(str(a).upper() for a in content[:4])
+                param = { 'v' : [float(v) for v in content[4:]],
+                          'comment' : comment }
+                self.top[current_sect][atoms] = param
+
+    def _update_ndx(self) -> None:
+        """Update line indexes of raw stored topology"""
+        current_sect = None
+        for n, line in enumerate(self.raw_top):
+            # remove comments and empty lines
+            if not line.strip() or line.startswith("!"):
+                continue
+            keyword = line.split()[0].lower()
+            if keyword in self.sections or keyword == 'types':
+                current_sect = keyword if keyword != 'types' else 'atomtypes'
+                self.raw_ndx[current_sect][0] = n
+            elif keyword == 'end' and current_sect is not None:
+                self.raw_ndx[current_sect][1] = n
+                current_sect = None
 
     def raw_prepend(self, section:str, text:str) -> None:
         self._raw_insert(1, section, text)
@@ -130,21 +203,6 @@ class DynamoTopology():
             elif action == -1:
                 self.raw_top.insert(ndx[1], line)
         self._update_ndx()
-
-    def _update_ndx(self) -> None:
-        """Update line indexes of raw stored topology"""
-        current_sele = None
-        for n, line in enumerate(self.raw_top):
-            # remove comments and empty lines
-            if not line.strip() or line.startswith("!"):
-                continue
-            keyword = line.split()[0].lower()
-            if keyword in self.sections or keyword == 'types':
-                current_sele = keyword if keyword != 'types' else 'atomtypes'
-                self.raw_ndx[current_sele][0] = n
-            elif keyword == 'end' and current_sele is not None:
-                self.raw_ndx[current_sele][1] = n
-                current_sele = None
 
 
 ##  FORCE FIELS PARAMTERS CLASS  ######################################
