@@ -1,4 +1,5 @@
-# -*- coding: iso-8859-1 -*-
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
 
 """
   Copyright (C) Sergio Marti (smarti@nuvol.uji.es)
@@ -35,23 +36,22 @@ import    stat
 import    gzip
 import    bz2
 
-#
 # http://physics.nist.gov/cuu/Constants/index.html
-#
-_c       = 299792458.       # m·s-1
-_NA      = 6.0221415e23        # mol-1
-_h       = 6.6260693e-34    # J·s
-_kb      = 1.3806505e-23    # J·K-1
-_R       = 8.314472         # J·mol-1·K-1
+_c       = 299792458.       # mÂ·s-1
+_NA      = 6.0221415e23     # mol-1
+_h       = 6.6260693e-34    # JÂ·s
+_kb      = 1.3806505e-23    # JÂ·K-1
+_R       = 8.314472         # JÂ·mol-1Â·K-1
 _eV      = 1.60217653e-19   # eV -> J
 _me      = 9.1093826e-31    # kg
-_a0      = 0.5291772108     # 1e-10·m
-_Ha      = 4.35974417e-18   # J (2625.49962955 kJ·mol-1)
+_a0      = 0.5291772108     # 1e-10Â·m
+_Ha      = 4.35974417e-18   # J (2625.49962955 kJÂ·mol-1)
 _K2J     = 4.184
 _J2K     = 0.239005736138
-_H2K     = 627.509471695    # Ha >> kcal·mol-1
+_H2K     = 627.509471695    # Ha >> kcalÂ·mol-1
 _R2D     = 180./math.pi
 _VERSION = "Mon Jan 23 20:40:44 CET 2006"
+__version__ = "Thu 22 Apr 2021 07:18:59 PM CEST"
 
 
 #######################################################################
@@ -121,10 +121,8 @@ PTable_size = len( PTable_mass )
 def Module( v ):
     return( math.sqrt( v[0] * v[0] + v[1] * v[1] + v[2] * v[2] ) )
 
-
 def Dotvec( a, b ):
     return( ( a[0] * b[0] ) + ( a[1] * b[1] ) + ( a[2] * b[2] ) )
-
 
 def Crossvec( a, b ):
     out=[ .0, .0, .0 ]
@@ -132,7 +130,6 @@ def Crossvec( a, b ):
     out[1]=a[2] * b[0] - a[0] * b[2]
     out[2]=a[0] * b[1] - a[1] * b[0]
     return( out )
-
 
 def Normalize( vec ):
     mod_vec=Module( vec )
@@ -143,13 +140,11 @@ def Normalize( vec ):
     vec[2]/=mod_vec
     return( vec )
     
-
 def Det3( m ):
     det= m[0] * ( m[4] * m[8] - m[5] * m[7] )
     det-=m[1] * ( m[3] * m[8] - m[5] * m[6] )
     det+=m[2] * ( m[3] * m[7] - m[4] * m[6] )
     return( det )
-
 
 def Matvec3( vec, mat ):
     out=[ .0, .0, .0 ]
@@ -158,7 +153,6 @@ def Matvec3( vec, mat ):
     out[2]=vec[0] * mat[6] + vec[1] * mat[7] + vec[2] * mat[8]
     return( out )
     
-
 def Invmat3( m ):
     det=Det3( m )
     mi=[ .0, .0, .0, .0, .0, .0, .0, .0, .0 ]
@@ -174,7 +168,6 @@ def Invmat3( m ):
         mi[8]=+( m[0] * m[4] - m[1] * m[3] ) / det
     return( mi )
 
-
 def Matmat3( ma, mb ):
     mo=[ .0, .0, .0, .0, .0, .0, .0, .0, .0 ]
     mo[0]=ma[0] * mb[0] + ma[1] * mb[3] + ma[2] * mb[6]
@@ -188,7 +181,6 @@ def Matmat3( ma, mb ):
     mo[8]=ma[6] * mb[2] + ma[7] * mb[5] + ma[8] * mb[8]
     return( mo )
 
-
 def Jacobi3( mat_symm_upp ):
     msu=mat_symm_upp[:]
     tmsu=[ .0, .0, .0, .0, .0, .0 ]
@@ -199,9 +191,7 @@ def Jacobi3( mat_symm_upp ):
     while( nit < 100 and flg == 0 ):
         tet=.0
         faij=[ math.fabs( msu[1] ), math.fabs( msu[2] ), math.fabs( msu[4] ) ]
-        # M(1,2)
         if( faij[0] > faij[1] and faij[0] > faij[2] ):
-#            elemento="a12"
             if( math.fabs( msu[3] - msu[0] ) > 1e-12 ):
                 tet=0.5 * math.atan( -2. * msu[1] / ( msu[3] - msu[0] ) )
                 sen=math.sin( tet ); SEN=sen*sen
@@ -227,10 +217,8 @@ def Jacobi3( mat_symm_upp ):
             tmpe[7]=evec[7] * cos - evec[6] * sen
             tmpe[8]=evec[8]
             evec=tmpe[:]
-#            evec=Matmat3( evec, [ cos, -sen, .0, sen, cos, .0, .0, .0, 1. ] )
-        # M(1,3)
+            # evec=Matmat3( evec, [ cos, -sen, .0, sen, cos, .0, .0, .0, 1. ] )
         elif( faij[1] > faij[0] and faij[1] > faij[2] ):
-#            elemento="a13"
             if( math.fabs( msu[5] - msu[0] ) > 1e-12 ):
                 tet=0.5 * math.atan( -2. * msu[2] / ( msu[5] - msu[0] ) )
                 sen=math.sin( tet ); SEN=sen*sen
@@ -256,10 +244,8 @@ def Jacobi3( mat_symm_upp ):
             tmpe[7]=evec[7]
             tmpe[8]=evec[8] * cos - evec[6] * sen
             evec=tmpe[:]
-#            evec=Matmat3( evec, [ cos, .0, -sen, .0, 1., .0, sen, .0, cos ] )
-        # M(2,3)
+            # evec=Matmat3( evec, [ cos, .0, -sen, .0, 1., .0, sen, .0, cos ] )
         else:
-#            elemento="a23"
             if( math.fabs( msu[5] - msu[3] ) > 1e-12 ):
                 tet=0.5 * math.atan( -2. * msu[4] / ( msu[5] - msu[3] ) )
                 sen=math.sin( tet ); SEN=sen*sen
@@ -285,12 +271,12 @@ def Jacobi3( mat_symm_upp ):
             tmpe[7]=evec[7] * cos + evec[8] * sen
             tmpe[8]=evec[8] * cos - evec[7] * sen
             evec=tmpe[:]
-#            evec=Matmat3( evec, [ 1., .0, .0, .0, cos, -sen, .0, sen, cos ] )
-#        print "%d [%s] (%lf)"%(nit,elemento,tet)
-#        print "%20.10lf%20.10lf%20.10lf"%(msu[0],msu[3],msu[5])
-#        print "%20.10lf%20.10lf%20.10lf"%(evec[0],evec[1],evec[2])
-#        print "%20.10lf%20.10lf%20.10lf"%(evec[3],evec[4],evec[5])
-#        print "%20.10lf%20.10lf%20.10lf\n"%(evec[6],evec[7],evec[8])
+            # evec=Matmat3( evec, [ 1., .0, .0, .0, cos, -sen, .0, sen, cos ] )
+            # print "%d [%s] (%lf)"%(nit,elemento,tet)
+            # print "%20.10lf%20.10lf%20.10lf"%(msu[0],msu[3],msu[5])
+            # print "%20.10lf%20.10lf%20.10lf"%(evec[0],evec[1],evec[2])
+            # print "%20.10lf%20.10lf%20.10lf"%(evec[3],evec[4],evec[5])
+            # print "%20.10lf%20.10lf%20.10lf\n"%(evec[6],evec[7],evec[8])
         nit+=1
         flg=( math.fabs( msu[1] ) < 1e-6 and
             math.fabs( msu[2] ) < 1e-6 and
@@ -300,10 +286,8 @@ def Jacobi3( mat_symm_upp ):
     else:
         return( [ msu[0], msu[3], msu[5] ], evec )
 
-
 def Dist( crd1, crd2 ):
     return( Module( [ crd2[0] - crd1[0], crd2[1] - crd1[1], crd2[2] - crd1[2] ] ) )
-
 
 def Angl( crd1, crd2, crd3 ):
     v21=[ .0, .0, .0 ]
@@ -315,7 +299,6 @@ def Angl( crd1, crd2, crd3 ):
     v23[1]=crd3[1] - crd2[1]
     v23[2]=crd3[2] - crd2[2]
     return( math.acos( Dotvec( v21, v23 ) / ( Module( v21 ) * Module( v23 ) ) ) * _R2D )
-
 
 def Dihe( crd1, crd2, crd3, crd4 ):
     v21=[ .0, .0, .0 ]
@@ -354,9 +337,8 @@ def Dihe( crd1, crd2, crd3, crd4 ):
 #                                                                     #
 #######################################################################
 class Molec:
-#
-# Init all the variables...
-#
+
+    # Init all the variables...
     def __init__( self, size=0 ):
         self.size=size
         self.segn=[]
@@ -387,7 +369,6 @@ class Molec:
             self.res_lim.append( size - 1 )
             self.res_lim_size+=1
 
-
     def __clean( self ):
         del self.size
         del self.segn
@@ -406,9 +387,8 @@ class Molec:
         self.__clean()
 
 
-#
-# Physical / Logical separation...
-#
+    # Physical / Logical separation...
+
     def get_segn( self, n ):
         return( self.segn[n] )
 
@@ -454,9 +434,8 @@ class Molec:
         self.z[n]=z
 
 
-#
-# Basic Geometrical Operations: Translate, Rotate and Dock...
-#
+    # Basic Geometrical Operations: Translate, Rotate and Dock...
+
     def translate( self, vec, beta=1., sele=None ):
         if( sele == None ):
             n=0
@@ -478,7 +457,6 @@ class Molec:
                     self.set_crd( n, pos )
                 n+=1
 
-        
     def translate_to_center( self ):
         com=[ .0, .0, .0 ]
         t=.0
@@ -497,11 +475,10 @@ class Molec:
             self.set_crd( n, p )
             n+=1
 
-
     def to_principal_axes( self ):
         self.translate_to_center()
         xx=.0; xy=.0; xz=.0
-        yy=.0; yz=.0;
+        yy=.0; yz=.0
         zz=.0
         n=0
         while( n < self.size ):
@@ -514,9 +491,9 @@ class Molec:
             yz+=m * p[1] * p[2]
             zz+=m * p[2] * p[2]
             n+=1
-# Symmetric Upper por columnas (Dynamo, F90)
-#        mti=[ yy + zz, -xy, xx + zz, -xz, -yz, xx + yy ]
-# Symmetric Upper por filas
+        # Symmetric Upper por columnas (Dynamo, F90)
+        # mti=[ yy + zz, -xy, xx + zz, -xz, -yz, xx + yy ]
+        # Symmetric Upper por filas
         mti=[ yy + zz, -xy, -xz, xx + zz, -yz, xx + yy ]
         eval,evec=Jacobi3( mti )
         #Transpose
@@ -529,7 +506,6 @@ class Molec:
             pos=self.get_crd( n )
             self.set_crd( n, Matvec3( pos, evec ) )
             n+=1
-
 
     def rotate( self, crd1, crd2, theta, sele=None ):
         theta/=_R2D
@@ -564,8 +540,6 @@ class Molec:
         # Build Basis-Change Matrices
         mcb=[ vp[0], vp[1], vp[2], vu[0], vu[1], vu[2], vr[0], vr[1], vr[2] ]
         micb=Invmat3( mcb )
-#        print mcb
-#        print micb
         # Rotation:    micb * R * mcb * P
         #
         #    P      atom/point
@@ -617,7 +591,6 @@ class Molec:
                     pos[2]+=cr[2]
                     self.set_crd( n, pos )
                 n+=1
-
 
     # a? (atom numbers) refer first to *zero* !!!
     def dock( self, a1, a2, a3, crd1, crd2, crd3, sele=None ):
@@ -691,44 +664,44 @@ class Molec:
         if( Dist( crd3, self.get_crd( a3 ) ) > .1 ):
             self.rotate( cr, vp, 360. - 2 * theta, sele )
 
-#   SUPERIMPOSE_QUATERNION (Dynamo)
-#   Gerald Kneller, Mol. Sim. 7, 113--119, 1991.
-#    def superimpose( self, molec ):
-#        if( molec.size != self.size ): return
-#        mc=molec.mass_center()
-#        crd=[]
-#        n=0
-#        while( n < molec.size ):
-#            p=molec.get_crd( n )
-#            for i in [ 0, 1, 2 ]: p[i]-=mc[i]
-#            crd.append( p[:] )
-#            n+=1
-#        self.translate_to_center()
-#        m=[ .0, .0, .0, .0, .0, .0, .0, .0, .0, .0 ]
-#        n=0
-#        while( n < self.size ):
-#            mas=PTable_mass[ self.get_z( m ) ]
-#            p=self.get_crd( n )
-#            c=Crossvec( crd[n], p )
-#            for i in [ 0, 1, 2 ]: c[i]*=2.
-#            f=.0
-#            for i in [ 0, 1, 2 ]: 
-#                f+=(crd[n][i] + p[i]) * (crd[n][i] + p[i])
-#            for i in [ 0, 1, 2 ]: 
-#                m[0]+=mas * (crd[n][i] - p[i]) * (crd[n][i] - p[i])
-#            m[1]+=mas * c[0]
-#            m[2]+=mas * (f - 4. * crd[n][0] * p[0])
-#            m[3]+=mas * c[1]
-#            m[4]-=mas * 2. * ( crd[n][0] * p[1] + crd[n][1] * p[0] )
-#            m[5]+=mas * (f - 4. * crd[n][1] * p[1])
-#            m[6]+=mas * c[2]
-#            m[7]-=mas * 2. * ( crd[n][0] * p[2] + crd[n][2] * p[0] )
-#            m[8]-=mas * 2. * ( crd[n][1] * p[2] + crd[n][2] * p[1] )
-#            m[9]+=mas * (f - 4. * crd[n][2] * p[2])
-#            n+=1
-#        # columnas > filas
-#        ei,ev=Jacobi4( [ m[0], m[1], m[3], m[6], m[2], m[4], m[7], m[5], m[8], m[9] ] )
-
+    # SUPERIMPOSE_QUATERNION (Dynamo)
+    # Gerald Kneller, Mol. Sim. 7, 113--119, 1991.
+    def superimpose( self, molec ):
+        pass
+        # if( molec.size != self.size ): return
+        # mc=molec.mass_center()
+        # crd=[]
+        # n=0
+        # while( n < molec.size ):
+        #     p=molec.get_crd( n )
+        #     for i in [ 0, 1, 2 ]: p[i]-=mc[i]
+        #     crd.append( p[:] )
+        #     n+=1
+        # self.translate_to_center()
+        # m=[ .0, .0, .0, .0, .0, .0, .0, .0, .0, .0 ]
+        # n=0
+        # while( n < self.size ):
+        #     mas=PTable_mass[ self.get_z( m ) ]
+        #     p=self.get_crd( n )
+        #     c=Crossvec( crd[n], p )
+        #     for i in [ 0, 1, 2 ]: c[i]*=2.
+        #     f=.0
+        #     for i in [ 0, 1, 2 ]: 
+        #         f+=(crd[n][i] + p[i]) * (crd[n][i] + p[i])
+        #     for i in [ 0, 1, 2 ]: 
+        #         m[0]+=mas * (crd[n][i] - p[i]) * (crd[n][i] - p[i])
+        #     m[1]+=mas * c[0]
+        #     m[2]+=mas * (f - 4. * crd[n][0] * p[0])
+        #     m[3]+=mas * c[1]
+        #     m[4]-=mas * 2. * ( crd[n][0] * p[1] + crd[n][1] * p[0] )
+        #     m[5]+=mas * (f - 4. * crd[n][1] * p[1])
+        #     m[6]+=mas * c[2]
+        #     m[7]-=mas * 2. * ( crd[n][0] * p[2] + crd[n][2] * p[0] )
+        #     m[8]-=mas * 2. * ( crd[n][1] * p[2] + crd[n][2] * p[1] )
+        #     m[9]+=mas * (f - 4. * crd[n][2] * p[2])
+        #     n+=1
+        # # columnas > filas
+        # ei,ev=Jacobi4( [ m[0], m[1], m[3], m[6], m[2], m[4], m[7], m[5], m[8], m[9] ] )
 
     def define_limits( self ):
         del self.seg_lim
@@ -759,7 +732,6 @@ class Molec:
         self.res_lim.append( self.size )
         self.res_lim_size+=1
 
-
     def atom_number( self, segn, resid, atom ):
         # Segname
         seg_idx=-1
@@ -789,7 +761,6 @@ class Molec:
             n+=1
         return( atm_idx )
 
-
     # dirty, since no logical separation...
     def append( self, molec ):
         self.size+=molec.size
@@ -805,6 +776,7 @@ class Molec:
             n+=1
         self.define_limits()
         self.hard_norm()
+    
     def remove( self, sele ):
         n=self.size-1
         while( n > -1 ):
@@ -822,9 +794,8 @@ class Molec:
         self.hard_norm()
 
 
-#
-# DCD IO (Yes!, quick and dirty...)
-#
+    # DCD IO (Yes!, quick and dirty...)
+
     def dcd_read( self, name ):
         if( name[-4:] == ".bz2" ):
             self.dcd_fd=bz2.BZ2File( name, "rb" )
@@ -842,12 +813,12 @@ class Molec:
         self.dcd_nfixed=struct.unpack( self.dcd_end + "i", self.dcd_fd.read( 4 ) )[0]
         self.dcd_fd.read( 4 )
         self.dcd_qcrys=struct.unpack( self.dcd_end + "i", self.dcd_fd.read( 4 ) )[0]
-# faster for dynamo, but charmm uses variable titles...
-#        self.dcd_fd.read( 136 )
-# charmm friendly code
+        # faster for dynamo, but charmm uses variable titles...
+        # self.dcd_fd.read( 136 )
+        # charmm friendly code
         self.dcd_fd.read( 40 )
         self.dcd_fd.read( struct.unpack( self.dcd_end + "i", self.dcd_fd.read( 4 ) )[0] + 8 )
-# -----------------------------------------------------------------------------------
+        # -----------------------------------------------------------------------------------
         self.dcd_natoms=struct.unpack( self.dcd_end + "i", self.dcd_fd.read( 4 ) )[0]
         self.dcd_fd.read( 4 )
         self.dcd_nfree=self.dcd_natoms - self.dcd_nfixed
@@ -908,13 +879,13 @@ class Molec:
         self.dcd_fd.write( struct.pack( self.dcd_end + "i", 0 ) )
         self.dcd_fd.write( struct.pack( self.dcd_end + "i", 0 ) )
         self.dcd_fd.write( b )
-# -----------------------------------------------------------------------------------
+        # -----------------------------------------------------------------------------------
         b = struct.pack( self.dcd_end + "i", 4 + 80 )
         self.dcd_fd.write( b )
         self.dcd_fd.write( struct.pack( self.dcd_end + "i", 1 ) )
         self.dcd_fd.write( '* ECMB                                                                          ' )
         self.dcd_fd.write( b )
-# -----------------------------------------------------------------------------------
+        # -----------------------------------------------------------------------------------
         self.dcd_fd.write( struct.pack( self.dcd_end + "i", 4 ) + struct.pack( self.dcd_end + "i", self.size ) + struct.pack( self.dcd_end + "i", 4 ) )
         self.dcd_natoms = self.size
         self.dcd_sele = []
@@ -1077,9 +1048,8 @@ class Molec:
                 return( 0 )
 
 
-#
-# PDB IO (Almost all IO funcs break the logical/physical independence)
-#
+    # PDB IO (Almost all IO funcs break the logical/physical independence)
+
     def load_ent( self, name=None ):
         if( name == None ):
             fd=sys.stdin
@@ -1139,7 +1109,6 @@ class Molec:
         self.res_lim_size+=1
         if( fd != sys.stdin ): fd.close()
 
-
     def load_fpdb( self, name=None ):
         if( name == None ):
             fd=sys.stdin
@@ -1194,7 +1163,6 @@ class Molec:
         self.res_lim.append( self.size )
         self.res_lim_size+=1
         if( fd != sys.stdin ): fd.close()
-
 
     def load_pdb( self, name=None ):
         if( name == None ):
@@ -1260,7 +1228,6 @@ class Molec:
         self.res_lim_size+=1
         if( fd != sys.stdin ): fd.close()
 
-
     def save_pdb( self, name=None, sele=None, big=0 ):
         # INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS
         def __format_pdb_line( self, fd, n, big ):
@@ -1303,9 +1270,8 @@ class Molec:
         if( fd != sys.stdout ): fd.close()
 
 
-#
-# Coordinates IO
-#
+    # Coordinates IO
+
     def load_crd( self, name=None ):
         if( name == None ):
             fd=sys.stdin
@@ -1375,7 +1341,6 @@ class Molec:
         self.res_lim_size+=1
         if( fd != sys.stdin ): fd.close()
 
-
     def save_crd( self, name=None, boxl = None ):
         if( name == None ):
             fd=sys.stdout
@@ -1416,9 +1381,8 @@ class Molec:
         if( fd != sys.stdout ): fd.close()
 
 
-#
-# Charmm IO
-#
+    # Charmm IO
+
     def load_card( self, name=None ):
         if( name == None ):
             fd=sys.stdin
@@ -1453,7 +1417,7 @@ class Molec:
             #          1         2         3         4         5         6
             curr_resn=string.strip( line[11:16] )
             curr_resid=string.atoi( line[55:60] )
-#            curr_tresi=string.atoi( line[5:10] )
+            # curr_tresi=string.atoi( line[5:10] )
             curr_segn=string.strip( line[51:56] )
             # ---
             self.atom.append( string.strip( line[16:20] ) )
@@ -1485,7 +1449,6 @@ class Molec:
         self.res_lim_size+=1
         if( fd != sys.stdin ): fd.close()
 
-
     def save_card( self, name=None ):
         if( name == None ):
             fd=sys.stdout
@@ -1505,9 +1468,8 @@ class Molec:
         if( fd != sys.stdout ): fd.close()
 
 
-#
-# XYZ IO (and cartesian derivates...)
-#
+    # XYZ IO (and cartesian derivates...)
+
     def load_xyz( self, name=None ):
         if( name == None ):
             fd=sys.stdin
@@ -1544,7 +1506,6 @@ class Molec:
             m+=1
         if( fd != sys.stdin ): fd.close()
 
-
     def load_CCx( self, name=None ):
         if( name == None ):
             fd=sys.stdin
@@ -1557,7 +1518,7 @@ class Molec:
                 fd=open( name, "rt" )
         self.__clean()
         self.__init__()
-        self.size=stirng.atoi( fd.readline() )
+        self.size=string.atoi( fd.readline() )
         self.seg_lim=[ 0, self.size ]
         self.seg_lim_size=2
         self.res_lim=[ 0, self.size ]
@@ -1576,7 +1537,6 @@ class Molec:
             self.resid.append( 0 )
             m+=1
         if( fd != sys.stdin ): fd.close()
-
 
     def save_xyz( self, name=None, sele=None ):
         if( name == None ):
@@ -1604,10 +1564,9 @@ class Molec:
         if( fd != sys.stdout ): fd.close()
 
 
-#
-# Fill array charges from dynamo or charmm
-#
-#        kind: 'sysbin' (dynamo) // 'psf' (charmm)
+    # HIGHLY EXPERIMENTAL CODE!!!
+    # Fill array charges from dynamo or charmm
+    # kind: 'sysbin' (dynamo) // 'psf' (charmm)
     def fill_charges( self, fname, kind='sysbin' ):
         fd=file( fname, 'rb' )
         for i in range( 6 ):
@@ -1632,21 +1591,14 @@ class Molec:
         fd.close()
 
 
-#
-# Mopac (93) IRC IO (cartesian form)
-#
-#    def load_mopacIRC ( self, name ):
+    # Mopac (93) IRC IO (cartesian form)
+    # def load_mopacIRC ( self, name ):
+
+    # Grace IRC IO
+    # def load_graceIRC ( self, name ):
 
 
-#
-# Grace IRC IO
-#
-#    def load_graceIRC ( self, name ):
-
-
-#
-# Molecule Operations..
-#
+    # Molecule Operations..
     def guess_z( self, sele=None ):
         if( sele == None ):
             n=0
@@ -1684,9 +1636,7 @@ class Molec:
                             %( n+1, self.get_atom( n ) ) )
                 n+=1
 
-#
-# Remember to call .define_limtis() after .chg_segn & .chg_resn
-#
+    # Remember to call .define_limtis() after .chg_segn & .chg_resn
     def chg_segn( self, nsegn, segn=None, sele=None ):
         # Change only selected atoms
         if( sele != None ):
@@ -1712,8 +1662,7 @@ class Molec:
                         for n in range( self.seg_lim[idx], self.seg_lim[idx + 1] ):
                             self.set_segn( n, nsegn )
                     idx+=1
-#        self.define_limits()
-
+        # self.define_limits()
 
     def chg_resn( self, nresn, resn=None, sele=None ):
         # Change only selected atoms
@@ -1740,43 +1689,40 @@ class Molec:
                         for n in range( self.res_lim[idx], self.res_lim[idx + 1] ):
                             self.set_resn( n, nresn )
                     idx+=1
-#        self.define_limits()
+        # self.define_limits()
             
-
     def hard_norm( self ):
-#        lst_segn=self.segn[0]
-#        lst_resn=self.resn[0]
-#        lst_resid=self.resid[0]
-#        lst_atmlst=[ self.atom[0] ]
+        # lst_segn=self.segn[0]
+        # lst_resn=self.resn[0]
+        # lst_resid=self.resid[0]
+        # lst_atmlst=[ self.atom[0] ]
         lst_segn=""
         lst_resn=""
         lst_resid=0
         lst_atmlst=[]
-#
-# Quick & dirty
-#
-#        n=1
-#        acc=1
-#        while( n < self.size ):
-#            if( lst_segn != self.segn[n] ):
-#                acc=1
-#                lst_atmlst=[ self.atom[n] ]
-#                lst_segn=self.segn[n]
-#                lst_resn=self.resn[n]
-#                lst_resid=self.resid[n]
-#            elif( lst_resn != self.resn[n] or 
-#                    lst_resid != self.resid[n] or 
-#                    self.atom[n] in lst_atmlst ):
-#                acc+=1
-#                lst_atmlst=[ self.atom[n] ]
-#                lst_resn=self.resn[n]
-#                lst_resid=self.resid[n]
-#            self.resid[n]=acc
-#            lst_atmlst.append( self.atom[n] )
-#            n+=1
-#
-# Further logical/physical separation...
-#
+        # Quick & dirty
+        #
+        #        n=1
+        #        acc=1
+        #        while( n < self.size ):
+        #            if( lst_segn != self.segn[n] ):
+        #                acc=1
+        #                lst_atmlst=[ self.atom[n] ]
+        #                lst_segn=self.segn[n]
+        #                lst_resn=self.resn[n]
+        #                lst_resid=self.resid[n]
+        #            elif( lst_resn != self.resn[n] or 
+        #                    lst_resid != self.resid[n] or 
+        #                    self.atom[n] in lst_atmlst ):
+        #                acc+=1
+        #                lst_atmlst=[ self.atom[n] ]
+        #                lst_resn=self.resn[n]
+        #                lst_resid=self.resid[n]
+        #            self.resid[n]=acc
+        #            lst_atmlst.append( self.atom[n] )
+        #            n+=1
+        
+        # Further logical/physical separation...
         n=1
         acc=1
         while( n < self.size ):
@@ -1796,8 +1742,7 @@ class Molec:
             self.set_resid( n, acc )
             lst_atmlst.append( self.get_atom( n ) )
             n+=1
-#        self.define_limits()
-
+            # self.define_limits()
 
     def norm_resid( self, segn=None, acc=0 ):
         # INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS
@@ -1828,9 +1773,8 @@ class Molec:
             while( n < ns ):
                 __norm_resid_segn( self, self.get_segn( self.seg_lim[n] ), acc )
                 n+=1
-#            for item in self.seg_lim[:-1]:
-#                __norm_resid_segn( self, self.get_segn( item ), acc )
-
+            # for item in self.seg_lim[:-1]:
+            #     __norm_resid_segn( self, self.get_segn( item ), acc )
 
     def info( self, name=None, segn=None ):
         # INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS
@@ -1872,8 +1816,8 @@ class Molec:
             while( n < ns ):
                 __segn_info( self, self.get_segn( self.seg_lim[n] ), fd )
                 n+=1
-#            for item in self.seg_lim[:-1]:
-#                __segn_info( self, self.get_segn( item ), fd )
+            # for item in self.seg_lim[:-1]:
+            #     __segn_info( self, self.get_segn( item ), fd )
         if( fd != sys.stdout ): fd.close()
 
     def info_seq( self, name=None ):
@@ -1901,11 +1845,10 @@ class Molec:
             n+=1
         fd.write( "\nEnd" )
         if( fd != sys.stdout ): fd.close()
-        
 
-#
-# Generic utilities and properties
-#
+
+    # Generic utilities and properties
+
     def mass_center( self, sele=None ):
         mc=[ .0, .0, .0 ]
         mt=.0
@@ -1934,7 +1877,6 @@ class Molec:
         mc[1]/=mt
         mc[2]/=mt
         return( mc )
-
 
     # Electric field given in Hartrees per Bohr
     def elec_fld( self, crd, sele=None ):
@@ -1971,7 +1913,6 @@ class Molec:
                 m+=1
         return( efv )
         
-
     # Electric potential given in Hartrees
     def elec_pot( self, crd, chrg, sele=None ):
         ept=.0
@@ -2001,7 +1942,6 @@ class Molec:
                 m+=1
         return( ept )
         
-
     def dip_moment( self, sele=None ):
         dip=[ .0, .0, .0 ]
         if( sele == None ):
@@ -2024,7 +1964,6 @@ class Molec:
                     dip[2]+chrg * pos[2]
                 m+=1
         return( dip )
-
 
     # Could be done creating a new class, and returning it after...
     def convert_as_topo( self, conv_tab ):
@@ -2117,17 +2056,17 @@ class Molec:
         del tab_res, tab_res_size, tab_labels_top, tab_labels_mol
 
 
-# How to define external procedures to sort: Sort by default using the Z cartesian component
-#
-#    def compare ( data, id, ref, lt_flg ):
-#        if ( lt_flg ):
-#            return(data.get_crd(id)[2]<ref)
-#        else:
-#            return(data.get_crd(id)[2]>ref)
-#
-#    def getval ( data, id ):
-#        return(data.get_crd(id)[2])
-#
+    # How to define external procedures to sort: Sort by default using the Z cartesian component
+
+    # def compare ( data, id, ref, lt_flg ):
+    #     if ( lt_flg ):
+    #         return(data.get_crd(id)[2]<ref)
+    #     else:
+    #         return(data.get_crd(id)[2]>ref)
+
+    # def getval ( data, id ):
+    #     return(data.get_crd(id)[2])
+
     def __quicksort( self, idx, lo0, hi0, getval, cmpcall ):
         lo=lo0
         hi=hi0
@@ -2239,7 +2178,6 @@ class Molec:
                 fd.write( "End\n" )
         if( fd != sys.stdout ): fd.close()
     
-    
     def dynamo_sele( self, name=None, sele=None ):
         __trunc=12
         if( name == None ):
@@ -2311,49 +2249,21 @@ class Molec:
         if( fd != sys.stdout ): fd.close()
 
 
-    # HIGHLY EXPERIMENTAL CODE!!!
-    # kind: 'sysbin' (dynamo) // 'psf' (charmm)
-    def fill_charges( self, fname, kind='sysbin' ):
-        fd=file( fname, 'rb' )
-        for i in range( 6 ):
-            fd.read( struct.unpack( 'i', fd.read( 4 ) )[0] + 4 )
-        fd.read( 4 )
-        if( struct.unpack( 'i', fd.read( 4 ) )[0] == self.size ):
-            fd.read( 4 )
-            for i in range( 2 ):
-                fd.read( struct.unpack( 'i', fd.read( 4 ) )[0] + 4 )
-            fd.read(4)
-            i=0
-            for z in struct.unpack( '%di'%( self.size ), fd.read( self.size * 4 ) ):
-                self.z[i]=z
-                i+=1
-            fd.read(4)
-            fd.read( struct.unpack( 'i', fd.read( 4 ) )[0] + 4 )
-            fd.read(4)
-            i=0
-            for q in struct.unpack( '%dd'%( self.size ), fd.read( self.size * 8 ) ):
-                self.chrg[i]=q
-                i+=1
-        fd.close()
-
-
 #######################################################################
 #                                                                     #
 #  Selections                                                         #
 #                                                                     #
 #######################################################################
 class Sele:
-#
-# Init all the variables...
-#
+
+    # Init all the variables...
     def __init__( self, size=0, mode=False ):
         self.data=[]
-        self.size=size;
+        self.size=size
         n=0
         while( n < size ):
             self.data.append( mode )
             n+=1
-
 
     def __clean( self ):
         del self.data
@@ -2362,10 +2272,8 @@ class Sele:
     def __del__( self ):
         self.__clean()
 
-
     def issel( self, n ):
         return( self.data[n] )
-
 
     def count( self ):
         out=0
@@ -2376,7 +2284,6 @@ class Sele:
             n+=1
         return( out )
 
-    
     def make_list( self ):
         out=[]
         n=0
@@ -2386,22 +2293,15 @@ class Sele:
             n+=1
         return( out )
 
-
     def set_all( self, mode=True ):
         n=0
         while( n < self.size ):
             self.data[n]=mode
             n+=1
 
-
     def set( self, n, mode=True ):
         self.data[n]=mode
 
-
-    # segn    :    string 
-    # resn    :    string
-    # resid   :    array
-    # atom    :    array
     def select( self, molec, segn, resn='', resid=[], atom=[], mode=True ):
         if( self.size == 0 ):
             self.__init__( molec.size, not mode )
@@ -2441,7 +2341,6 @@ class Sele:
                             for n in range( molec.res_lim[curr_res], molec.res_lim[curr_res + 1] ):
                                 self.data[n]=mode
     
-
     def rad_sel( self, molec, crd, rcut, mode=True ):
         if( self.size == 0 ):
             self.__init__( molec.size, not mode )
@@ -2463,16 +2362,15 @@ class Sele:
                     n=molec.res_lim[idx] - 1
             n+=1
 
-
     def sph_sel( self, molec, sele, rcut, mode=1 ):
         if( self.size == 0 ):
             self.__init__( molec.size, not mode )
         # Smart, but not very optimal...
-#        n=0
-#        while ( n < sele.size ):
-#            if ( sele.issel( n ) ):
-#                self.rad_sel( molec, molec.get_crd( n ), rcut, mode )
-#            n+=1
+        # n=0
+        # while ( n < sele.size ):
+        #     if ( sele.issel( n ) ):
+        #         self.rad_sel( molec, molec.get_crd( n ), rcut, mode )
+        #     n+=1
         # Only loop once over the moelcule:  sele.size < molec.size
         sele_crd=[]
         sele_siz=0
@@ -2508,13 +2406,11 @@ class Sele:
                     n=molec.res_lim[idx] - 1
             n+=1
 
-    
     def bool_not( self ):
         n=0
         while( n < self.size ):
             self.data[n]=not self.data[n]
             n+=1
-
 
     def bool_or( self, sele ):
         n=0
@@ -2522,7 +2418,6 @@ class Sele:
             self.data[n]=self.data[n] or sele.issel(n)
             n+=1
             
-
     def bool_and( self, sele ):
         n=0
         while( n < self.size ):
@@ -2573,9 +2468,7 @@ class Sele:
 #                                                                     #
 #######################################################################
 class ZMat:
-#
-# Init all the variables...
-#
+    # Init all the variables...
     def __init__( self, size=0 ):
         self.size=size
         self.atom=[]
@@ -2603,7 +2496,6 @@ class ZMat:
             self.nc.append( 0 )
             n+=1
 
-
     def __clean( self ):
         del self.size
         del self.atom
@@ -2618,9 +2510,8 @@ class ZMat:
         self.__clean()
 
 
-#
-# Physical / Logical separation...
-#
+    # Physical / Logical separation...
+    
     def get_atom( self, n ):
         return( self.atom[n] )
 
@@ -2664,9 +2555,8 @@ class ZMat:
         self.nc[n]=nc
 
 
-#
-# Misc functions..
-#
+    # Misc functions..
+
     # Connectivity is provided as MOPAC one, but without the first
     # atom and without the "zeros", so no rearrangement of the position
     # of the atoms. May be in the future something will be done
@@ -2689,7 +2579,6 @@ class ZMat:
             self.set_nc( n, string.atoi( tmp[2] ) )
             n+=1
         if( fd != sys.stdin ): fd.close()
-
 
     def import_crd( self, molec, sele_list=None, label=True ):
         if( not sele_list ):
@@ -2731,7 +2620,6 @@ class ZMat:
                     molec.get_crd( sele_list[self.get_nc( n ) - 1] ) ) )
             n+=1
         
-
     def export_crd( self, molec, label=False ):
         if( molec.size == 0 ):
             molec.__init__( self.size )
@@ -2829,7 +2717,6 @@ class ZMat:
                 molec.set_crd( n, pos )
             n+=1
 
-
     def average_start( self ):
         if( self.size == 0 ): return
         n=0
@@ -2840,7 +2727,6 @@ class ZMat:
             self.aver_dsin.append( .0 )
             n+=1
         self.aver_npts=.0
-
 
     def average_append( self, molec, sele_list=None, label=True ):
         self.import_crd( molec, sele_list, label )
@@ -2855,7 +2741,6 @@ class ZMat:
             self.aver_dsin[n]+=math.sin( self.get_dihe( n ) / _R2D )
             n+=1
         self.aver_npts+=1.
-
 
     def average_stop( self ):
         # INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS
@@ -2888,23 +2773,21 @@ class ZMat:
             n+=1
 
 
-#
-# With ZMatrix, selections *must* be 3N-6 sized!! (Int. Coord.)
-#
-# Gaussian IO
-#
-#    def load_gauss ( self, name, sele=None ):
-#        if ( name=='' ):
-#            fd=sys.stdin
-#        else:
-#            fd=open(name,'rt')
-#        self.__clean()
-#        self.__init__()
-#        line=fd.readline()
-#        while ( line!='' ):
-#            line=fd.readline()
-#        if ( fd!=sys.stdin ): fd.close()
+    # With ZMatrix, selections *must* be 3N-6 sized!! (Int. Coord.)
 
+    # Gaussian IO
+
+    # def load_gauss ( self, name, sele=None ):
+    #     if ( name=='' ):
+    #         fd=sys.stdin
+    #     else:
+    #         fd=open(name,'rt')
+    #     self.__clean()
+    #     self.__init__()
+    #     line=fd.readline()
+    #     while ( line!='' ):
+    #         line=fd.readline()
+    #     if ( fd!=sys.stdin ): fd.close()
 
     def save_gauss( self, name=None, sele=None ):
         # INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS
@@ -2961,21 +2844,19 @@ class ZMat:
         if( fd != sys.stdout ): fd.close()
 
 
-#
-# Mopac (93) IO
-#
-#    def load_mopac ( self, name, sele=None ):
-#        if ( name=='' ):
-#            fd=sys.stdin
-#        else:
-#            fd=open(name,'rt')
-#        self.__clean()
-#        self.__init__()
-#        line=fd.readline()
-#        while ( line!='' ):
-#            line=fd.readline()
-#        if ( fd!=sys.stdin ): fd.close()
+    # Mopac (93) IO
 
+    # def load_mopac ( self, name, sele=None ):
+    #     if ( name=='' ):
+    #         fd=sys.stdin
+    #     else:
+    #         fd=open(name,'rt')
+    #     self.__clean()
+    #     self.__init__()
+    #     line=fd.readline()
+    #     while ( line!='' ):
+    #         line=fd.readline()
+    #     if ( fd!=sys.stdin ): fd.close()
 
     def save_mopac( self, name=None, sele=None ):
         # INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS
@@ -3046,18 +2927,18 @@ class ZMat:
 #                                                                     #
 #######################################################################
 class Topo:
+
     def __init__( self ):
         self.size=0
         self.label=[]
         self.chrg=[]
         self.z=[]
-# lista equvalente a self.res_lim, pero almacenando los nombres de los
-# residuos para que la busqueda sea mas rapida (empleando .index)...
-# el tamanyo sera por tanto res_lim_size-1
+        # lista equvalente a self.res_lim, pero almacenando los nombres de los
+        # residuos para que la busqueda sea mas rapida (empleando .index)...
+        # el tamanyo sera por tanto res_lim_size-1
         self.resn=[]
         self.res_lim=[]
         self.res_lim_size=0
-
 
     def __clean( self ):
         del self.size
@@ -3070,7 +2951,6 @@ class Topo:
 
     def __del__( self ):
         self.__clean()
-
 
     def get_label( self, n ):
         return( self.label[n] )
@@ -3092,7 +2972,6 @@ class Topo:
 
     def set_z( self, n, x ):
         self.z[n]=x
-
 
     def load_charmm( self, name=None ):
         # INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS
@@ -3158,7 +3037,6 @@ class Topo:
         self.res_lim_size+=1
         if( fd != sys.stdin ): fd.close()
 
-    
     def load_opls( self, name=None ):
         if( name == None ):
             fd=sys.stdin
@@ -3254,7 +3132,6 @@ class Topo:
         del conv_tbl
         if( fd != sys.stdin ): fd.close()
 
-
     # term: 'TOP_RESN SEGN RESID...'
     def apply( self, molec, term="" ):
         r_n=0
@@ -3267,7 +3144,7 @@ class Topo:
             except ValueError:
                 pass
             else:
-# - Fix this using subvectors [:] for performig the identification...
+                # - Fix this using subvectors [:] for performig the identification...
                 # Patch residue Charges & Z... SAME ORDER & SIZE!!!
                 t_n=self.res_lim[t_i]
                 t_s=self.res_lim[t_i + 1]
@@ -3276,7 +3153,7 @@ class Topo:
                     molec.set_z( r_m, self.get_z( t_n ) )
                     r_m+=1
                     t_n+=1
-# --------------------------------------------------------------------
+                # --------------------------------------------------------------------
             r_n+=1
         # Apply Terminals... Not full checking done...
         splt=string.split( term )
@@ -3312,7 +3189,7 @@ class Topo:
                         else:
                             r_i+=1
                     if( s_flg == 1 and r_flg == 1 ):
-# - Fix this using subvectors [:] for performig the identification...
+                        # - Fix this using subvectors [:] for performig the identification...
                         acc_t=self.res_lim[t_i]
                         acc_m=molec.res_lim[r_i]
                         m=0
@@ -3321,9 +3198,8 @@ class Topo:
                             molec.set_chrg( acc_m + m, self.get_chrg( acc_t + m ) )
                             molec.set_z( acc_m + m, self.get_z( acc_t + m ) )
                             m+=1
-# -----------------------------------------------------------------------
+                        # -----------------------------------------------------------------------
                 n+=3
-
 
     def save_conv_tab( self, name=None ):
         if( name == None ):
@@ -3352,6 +3228,7 @@ class Topo:
 # Vectors
 # --------------------------------------------------------------------
 class Vector:
+
     def __init__( self, n=0 ):
         self.size=n
         self.vec=[]
@@ -3359,7 +3236,6 @@ class Vector:
         while( m < n ):
             self.vec.append( .0 )
             m+=1
-
 
     def get( self, n ):
         return( self.vec[n] )
@@ -3372,14 +3248,12 @@ class Vector:
         del self.vec
         self.vec=list[:]
 
-
     def __clean( self ):
         del self.vec
         del self.size
 
     def __del__( self ):
         self.__clean()
-
 
     def module( self ):
         out=.0
@@ -3389,8 +3263,7 @@ class Vector:
             m+=1
         return( math.sqrt( out ) )
 
-
-    #  [ a0, a1, ..., an ]  ==  a0 + a1 · x + ... + an · x^n
+    #  [ a0, a1, ..., an ]  ==  a0 + a1 Â· x + ... + an Â· x^n
     def poly_val( self, x ):
         out=.0
         n=0
@@ -3399,7 +3272,6 @@ class Vector:
             n+=1
         return( out )
 
-        
     def dot( self, vector ):
         out=.0
         if( self.size == vector.size ):
@@ -3408,7 +3280,6 @@ class Vector:
                 out+=self.get( m ) * vector.get( m )
                 m+=1
         return( out )
-
 
     # 'space' is a list containing so many vectors as the dimension minus 2
     def cross( self, space ):
@@ -3457,6 +3328,7 @@ class Vector:
 # Matrices
 # --------------------------------------------------------------------
 class Matrix:
+
     # By default build an identity matrix...
     def __init__( self, n, m=None ):
         self.n=n
@@ -3479,13 +3351,11 @@ class Matrix:
             del row
             i+=1
 
-
     def __clean( self ):
         del self.mat
 
     def __del__( self ):
         self.__clean()
-
 
     def get( self, n, m ):
         return( self.mat[n][m] )
@@ -3518,8 +3388,7 @@ class Matrix:
                 self.set( j, m, list[j] )
                 j+=1
 
-
-    # Matrix * Vector: n·m x m·1 = n·1
+    # Matrix * Vector: nÂ·m x mÂ·1 = nÂ·1
     def vec_mult( self, vector ):
         if( self.m == vector.size ):
             out=Vector( self.n )
@@ -3536,8 +3405,7 @@ class Matrix:
         else:
             return( Vector( 0 ) )
         
-
-    # Matrix * Matrix: a·b x b·c = a·c
+    # Matrix * Matrix: aÂ·b x bÂ·c = aÂ·c
     def mat_mult( self, matrix ):
         if( self.m == matrix.n ):
             out=Matrix( self.n, matrix.m )
@@ -3558,9 +3426,8 @@ class Matrix:
             return( Matrix( 0 ) )
 
 
-    #
     # Only way to define recursive functions inside a class !?!?!?
-    #
+
     # INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS
     def __det( self, mat, sz ):
         out=.0
@@ -3592,7 +3459,6 @@ class Matrix:
             return( self.__det( self.mat, self.n ) )
         else:
             return( .0 )
-
 
     def inv( self ):
         if( self.n == self.m ):
@@ -3632,9 +3498,8 @@ class Matrix:
                 return( Matrix( 0 ) )
 
 
-#
-# Linear System Solvers...
-#
+    # Linear System Solvers...
+
     def gauss_jordan( self, ind ):
         # INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS
         def __norm_rows( self, ind ):
@@ -3751,7 +3616,6 @@ class Matrix:
             n+=1
         return( out )
 
-
     def cramer( self, ind ):
         if( self.n == self.m and self.n == ind.size ):
             d=self.det()
@@ -3782,7 +3646,6 @@ class Matrix:
         else:
             return( Vector( 0 ) )
 
-
     def solinv( self, ind ):
         if( self.n == self.m and self.n == ind.size ):
             mi=self.inv()
@@ -3795,10 +3658,8 @@ class Matrix:
         else:
             return( Vector( 0 ) )
 
-    
-#
+
 # Fit data into a polynome of Nth degree
-#
 def PolyFit( vx, vy, order, method="G" ):
     # INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS
     def __gen_xsum( v, k ):
@@ -3880,6 +3741,7 @@ def PolyFit( vx, vy, order, method="G" ):
 #                                                                     #
 #######################################################################
 class GPlot:
+
     def __init__( self ):
         self.GPLOT_PIPE="/tmp/gnu.%s.%d"%( os.environ["USER"], os.getpid() )
         self.GPLOT_EXEC="/usr/bin/env gnuplot"
@@ -3909,6 +3771,7 @@ class GPlot:
 #                                                                     #
 #######################################################################
 class VMD:
+
     def __init__( self, molec, sele = None ):
         self.VMD_EXEC="/tmp/vmd.%s.%d.exe"%( os.environ["USER"], os.getpid() )
         self.VMD_PIPE="/tmp/vmd.%s.%d.scr"%( os.environ["USER"], os.getpid() )
@@ -3940,5 +3803,3 @@ class VMD:
             os.unlink( self.VMD_COOR )
         except OSError:
             pass
-
-
