@@ -157,9 +157,33 @@ class DynamoTopology():
                 self.top['atomtypes'][attype] = param
 
             elif current_sect == 'residues': # ------------------------
+                # new residue
                 if keyword == 'residue':
                     resname = content[1].upper()
                     self.top['residues'][resname] = dict()
+                    continue
+                # read residue properties
+                restop = self.top['residues'][resname]
+                if not restop:
+                    restop['natoms'] = int(content[0])
+                    restop['nbonds'] = int(content[1])
+                    restop['nimpropers'] = int(content[2])
+                    restop['atoms'] = dict()
+                    restop['bonds'] = []
+                    restop['impropers'] = []
+                elif len(restop['atoms']) < restop['natoms']:
+                    param = { 'atomtype' : str(content[1]).upper(),
+                              'charge' : float(content[2]) }
+                    restop['atoms'][str(content[0]).upper()] = param
+                elif len(restop['bonds']) < restop['nbonds']:
+                    bonds = [ (b.split()[0].upper(), b.split()[1].upper())
+                              for b in " ".join(content).split(";") if b.strip()]
+                    restop['bonds'].extend(bonds)
+                elif len(restop['impropers']) < restop['nimpropers']:
+                    impropers = [ (i.split()[0].upper(), i.split()[1].upper(),
+                                  i.split()[2].upper(), i.split()[3].upper())
+                                  for i in " ".join(content).split(";") if i.strip() ]
+                    restop['impropers'].extend(impropers)
 
             elif current_sect == 'variants': # ------------------------
                 pass
