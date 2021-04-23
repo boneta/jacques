@@ -115,20 +115,39 @@ class DynamoTopology():
 
     def _read_ff_format(self, ff_raw:list=None) -> None:
         """Read fDynamo topology comprehensively"""
+        # default internal raw ff if not other specified
         ff_raw = ff_raw if ff_raw is not None else self.raw_top
+        # initializate topology dictionary
+        self.top = {'ff':None, 'mm_definitions':None, 'electrostatics':None, 'lennard_jones':None, 'units':None}
+        self.top.update({key:dict() for key in self.sections})
         # remove comment lines and blank lines
         topology = [line.strip() for line in ff_raw if line.strip() and not line.startswith("!")]
         # read line by line and assign depending on the section
+        # based on fDynamo method: MM_FILE_PROCESS() @ mm_file_io.F90
         current_sect = None
         for line in topology:
             line = line.split("!")
             keyword = line[0].split()[0].lower()
             content = line[0].split()
             comment = "!".join(line[1:])
-            if keyword == 'end' and current_sect: # -------------------
+
+            if keyword == 'end': # ------------------------------------
                 current_sect = None
+
+            elif keyword == 'mm_definitions': # -----------------------
+                self.top['ff'] = content[1:]
+
+            elif keyword in ('electrostatics', 'lennard_jones'): # ----
+                if content[1].lower() != "scale":
+                    sys.stderr.write(f"WARNING: Unrecognized {keyword.upper()} keyword\n")
+                self.top[keyword] = float(content[2])
+
+            elif keyword == 'units': # --------------------------------
+                self.top['units'] = str(content[1])
+
             elif keyword in self.sections or keyword == 'types': # ----
                 current_sect = keyword
+
             elif current_sect == 'types': # ---------------------------
                 attype = str(content[0]).upper()
                 param = { 'atnum' : int(content[1]),
@@ -147,6 +166,9 @@ class DynamoTopology():
 
             elif current_sect == 'links': # ---------------------------
                 pass
+
+            elif keyword == 'parameters': # ---------------------------
+                continue
 
             elif current_sect == 'bonds': # ---------------------------
                 atoms = tuple(str(a).upper() for a in content[:2])
@@ -168,8 +190,8 @@ class DynamoTopology():
                           'comment' : comment }
                 self.top[current_sect][atoms] = param
 
-            elif keyword == 'parameters':
-                continue
+            else:
+                sys.stderr.write("WARNING: Unrecognized option in FF file -> {}\n".format("!".join(line)))
 
     def _update_ndx(self) -> None:
         """Update line indexes of raw stored topology"""
