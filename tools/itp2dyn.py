@@ -159,37 +159,82 @@ class DynamoTopology():
             elif current_sect == 'residues': # ------------------------
                 # new residue
                 if keyword == 'residue':
-                    resname = content[1].upper()
-                    self.top['residues'][resname] = dict()
+                    name = content[1].upper()
+                    self.top['residues'][name] = dict()
                     continue
                 # read residue properties
-                restop = self.top['residues'][resname]
-                if not restop:
-                    restop['natoms'] = int(content[0])
-                    restop['nbonds'] = int(content[1])
-                    restop['nimpropers'] = int(content[2])
-                    restop['atoms'] = dict()
-                    restop['bonds'] = []
-                    restop['impropers'] = []
-                elif len(restop['atoms']) < restop['natoms']:
+                top = self.top['residues'][name]
+                if not top:
+                    top['natoms'] = int(content[0])
+                    top['nbonds'] = int(content[1])
+                    top['nimpropers'] = int(content[2])
+                    top['atoms'] = dict()
+                    top['bonds'] = []
+                    top['impropers'] = []
+                elif len(top['atoms']) < top['natoms']:
                     param = { 'atomtype' : str(content[1]).upper(),
                               'charge' : float(content[2]) }
-                    restop['atoms'][str(content[0]).upper()] = param
-                elif len(restop['bonds']) < restop['nbonds']:
-                    bonds = [ (b.split()[0].upper(), b.split()[1].upper())
+                    top['atoms'][str(content[0]).upper()] = param
+                elif len(top['bonds']) < top['nbonds']:
+                    bonds = [(b.split()[0].upper(), b.split()[1].upper())
                               for b in " ".join(content).split(";") if b.strip()]
-                    restop['bonds'].extend(bonds)
-                elif len(restop['impropers']) < restop['nimpropers']:
-                    impropers = [ (i.split()[0].upper(), i.split()[1].upper(),
+                    top['bonds'].extend(bonds)
+                elif len(top['impropers']) < top['nimpropers']:
+                    impropers = [(i.split()[0].upper(), i.split()[1].upper(),
                                   i.split()[2].upper(), i.split()[3].upper())
-                                  for i in " ".join(content).split(";") if i.strip() ]
-                    restop['impropers'].extend(impropers)
+                                  for i in " ".join(content).split(";") if i.strip()]
+                    top['impropers'].extend(impropers)
 
-            elif current_sect == 'variants': # ------------------------
-                pass
-
-            elif current_sect == 'links': # ---------------------------
-                pass
+            elif current_sect in ('variants', 'links'): # -------------
+                # new variant
+                if keyword == 'variant':
+                    name = " ".join(content[1:]).upper()
+                    self.top['variants'][name] = dict()
+                    continue
+                # new link
+                elif keyword == 'link':
+                    name = " ".join(content[1:]).upper()
+                    self.top['links'][name] = [dict()]*2
+                    continue
+                # read variant/link properties
+                if current_sect == 'variants':
+                    top = self.top['variants'][name]
+                elif current_sect == 'links':
+                    top = self.top['links'][name][0]
+                    fields = ('deletes','adds','charges','bonds','impropers')
+                    # check if first link is complete
+                    if top and all([ top['n'+field]==len(top[field]) for field in fields ]):
+                        top = self.top['links'][name][1]
+                if not top:
+                    top['ndeletes'] = int(content[0])
+                    top['nadds'] = int(content[1])
+                    top['ncharges'] = int(content[2])
+                    top['nbonds'] = int(content[3])
+                    top['nimpropers'] = int(content[4])
+                    top['deletes'] = []
+                    top['adds'] = dict()
+                    top['charges'] = dict()
+                    top['bonds'] = []
+                    top['impropers'] = []
+                elif len(top['deletes']) < top['ndeletes']:
+                    deletes = [b.strip().upper()
+                               for b in " ".join(content).split(";") if b.strip()]
+                    top['deletes'].extend(deletes)
+                elif len(top['adds']) < top['nadds']:
+                    param = { 'atomtype' : str(content[1]).upper(),
+                              'charge' : float(content[2]) }
+                    top['adds'][str(content[0]).upper()] = param
+                elif len(top['charges']) < top['ncharges']:
+                    top['charges'][str(content[0]).upper()] = float(content[1])
+                elif len(top['bonds']) < top['nbonds']:
+                    bonds = [(b.split()[0].upper(), b.split()[1].upper())
+                              for b in " ".join(content).split(";") if b.strip()]
+                    top['bonds'].extend(bonds)
+                elif len(top['impropers']) < top['nimpropers']:
+                    impropers = [(i.split()[0].upper(), i.split()[1].upper(),
+                                  i.split()[2].upper(), i.split()[3].upper())
+                                  for i in " ".join(content).split(";") if i.strip()]
+                    top['impropers'].extend(impropers)
 
             elif keyword == 'parameters': # ---------------------------
                 continue
