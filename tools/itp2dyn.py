@@ -375,11 +375,8 @@ class DynamoTopology():
         raw += "!"+"="*79+"\n" + \
                "!"+" "*22+"OPLS MM Definition File for Proteins\n" + \
                "!"+"="*79+"\n\n"
-        
-        # statements
-        for sect in self.statements:
-            raw += self.form_field(sect)
-        raw += "\n"
+        raw += self.form_field('mm_definitions') + "\n\n"
+
         
         # atomtypes
         if self.top['atomtypes']:
@@ -389,6 +386,10 @@ class DynamoTopology():
             for n, name in enumerate(self.top['atomtypes'].keys()):
                 raw += self.form_field('atomtypes', name, header_comment=(n==0))
             raw += "\nEnd\n\n"
+            # statements
+            for sect in ('electrostatics', 'lennard_jones', 'units'):
+                raw += self.form_field(sect)
+            raw += "\n\n"
         
         # residues / variants / links
         for sect in ('residues', 'variants', 'links'):
@@ -429,7 +430,7 @@ class DynamoTopology():
 
         # statements
         if form == 'mm_definitions':
-            return "MM_Defintions {:<}\n".format(topology)
+            return "MM_Definitions {:<}\n".format(topology)
         elif form == 'electrostatics':
             return "Electrostatics Scale {:<}\n".format(topology)
         elif form == 'lennard_jones':
