@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Description: Convert parameters from GROMACS' .itp (AMBER/GAFF) to DYNAMO's .ff (OPLS)
-# Last update: 22-04-2021
+# Last update: 23-04-2021
 
 # Inspired from ParmEd (gromacstop.py)
 # https://github.com/ParmEd/ParmEd
@@ -75,12 +75,16 @@ ptable_simple_inv = { n:elem for elem, n in ptable_simple.items() }
 class DynamoTopology():
     """fDynamo force field topology"""
 
-    sections = ['atomtypes', 'residues', 'variants', 'links',
-                'bonds', 'angles', 'dihedrals', 'impropers']
+    statements = ('mm_definitions', 'electrostatics', 'lennard_jones', 'units')
+    sections = ('atomtypes', 'residues', 'variants', 'links',
+                'bonds', 'angles', 'dihedrals', 'impropers')
 
     def __init__(self, ff_file:str=None):
         self.ff_file = ""
-        self.top = {key:dict() for key in self.sections}
+        # comprehensive topology
+        self.top = {key: None for key in self.statements}
+        self.top.update({key: dict() for key in self.sections})
+        # raw topology (formatted)
         self.raw_top = []
         self.raw_ndx = {key:[0]*2 for key in self.sections}
         # read topology file
@@ -90,11 +94,21 @@ class DynamoTopology():
     def __bool__(self):
         return bool(self.ff_file)
 
+    def __getattr__(self, attr:str):
+        # return value of property statement
+        if attr in self.statements:
+            return self.top[attr]
+        # return list of dictionary keys
+        elif attr in self.sections:
+            return list(self.top[attr].keys())
+        else:
+            raise KeyError("Unkown attribute")
+
     def __repr__(self):
         return self.raw_str
 
     @property
-    def raw_str(self):
+    def raw_str(self) -> str:
         return "".join(self.raw_top)
 
     def read_ff(self, ff_file:str, read_format:bool=True) -> None:
@@ -115,10 +129,9 @@ class DynamoTopology():
 
     def _read_ff_format(self, ff_raw:list=None) -> None:
         """Read fDynamo topology comprehensively"""
-        # default internal raw ff if not other specified
-        ff_raw = ff_raw if ff_raw is not None else self.raw_top
+        ff_raw = ff_raw or self.raw_top  # default internal raw ff if not other specified
         # initializate topology dictionary
-        self.top = {'ff':None, 'mm_definitions':None, 'electrostatics':None, 'lennard_jones':None, 'units':None}
+        self.top = {key:None for key in self.statements}
         self.top.update({key:dict() for key in self.sections})
         # remove comment lines and blank lines
         topology = [line.strip() for line in ff_raw if line.strip() and not line.startswith("!")]
@@ -129,13 +142,13 @@ class DynamoTopology():
             line = line.split("!")
             keyword = line[0].split()[0].lower()
             content = line[0].split()
-            comment = "!".join(line[1:])
+            comment = "!".join(line[1:]).strip()
 
             if keyword == 'end': # ------------------------------------
                 current_sect = None
 
             elif keyword == 'mm_definitions': # -----------------------
-                self.top['ff'] = content[1:]
+                self.top['mm_definitions'] = content[1:]
 
             elif keyword in ('electrostatics', 'lennard_jones'): # ----
                 if content[1].lower() != "scale":
@@ -277,6 +290,105 @@ class DynamoTopology():
                 self.raw_ndx[current_sect][1] = n
                 current_sect = None
 
+    def form_field(self, form:str, key=None, header_comment:bool=False, external=None) -> str:
+        """Build a formatted string of a specific field of the topology (statement/section)"""
+
+        if form not in self.statements + self.sections:
+            raise ValueError("Unknown field specifier for formatting to")
+        elif form in self.sections and not key:
+            raise TypeError("Required argument 'key' with 'section' formatting type")
+
+        topology = external or self.top[form]
+
+        # statements
+        if form == 'mm_definitions':
+            return "MM_Defintions {:<}\n".format(" ".join(topology))
+        elif form == 'electrostatics':
+            return "Electrostatics Scale {:<}\n".format(topology)
+        elif form == 'lennard_jones':
+            return "Lennard_Jones  Scale {:<}\n".format(topology)
+        elif form == 'units':
+            return "Units {:<}\n".format(topology)
+
+        # sections
+        param = topology if external else topology[key]
+        if 'comment' in param:
+            if param['comment']: param['comment'] = "! " + param['comment']
+        if form not in ('residues', 'variants', 'links'): param.update({'key':key})
+        if form == 'atomtypes':
+            header = "! Atom Name     Atomic Number        Sigma      Epsilon\n" if header_comment else ""
+            return header + "{key:<10s}   {atnum:>10}       {sigma:>12.5f} {epsilon:>12.5f}  {comment:<s}\n".format(**param)
+        elif form == 'residues':
+            text = []
+            text.append("Residue {:<s}\n".format(key))
+            text.append("{natoms:>4d} {nbonds:>4d} {nimpropers:>4d}\n\n".format(**param))
+            for name, atom in param['atoms'].items():
+                text.append("{:<4s}  {atomtype:<4s} {charge:>6.2f}\n".format(name, **atom))
+            text.append("\n")
+            if param['nbonds'] > 0:
+                for n, bond in enumerate(param['bonds']):
+                    text.append("{:<4s} {:<4s} ; ".format(*bond))
+                    if not (n+1) % 6: text.append("\n")
+                if (n+1) % 6: text.append("\n")
+                text.append("\n")
+            if param['nimpropers'] > 0:
+                for n, improper in enumerate(param['impropers']):
+                    text.append("{:<4s} {:<4s} {:<4s} {:<4s} ; ".format(*improper))
+                    if not (n+1) % 3: text.append("\n")
+                if (n+1) % 3: text.append("\n")
+                text.append("\n")
+            if header_comment:
+                text.insert(0,"!"+"-"*89+"\n")
+                text.insert(2,"!"+"-"*89+"\n")
+                text.insert(3, "! # Atoms, bonds and impropers\n")
+            return "".join(text)
+        elif form == 'variants':
+            text = []
+            text.append("Variant {:<s}\n".format(key))
+            text.append("{ndeletes:>4d} {nadds:>4d} {ncharges:>4d} {nbonds:>4d} {nimpropers:>4d}\n\n".format(**param))
+            if param['ndeletes'] > 0:
+                for delete in param['deletes']:
+                    text.append("{:<4s} ; ".format(delete))
+                text.append("\n\n")
+            if param['nadds'] > 0:
+                for name, add in param['adds'].items():
+                    text.append("{:<4s}  {atomtype:<4s} {charge:>6.2f}\n".format(name, **add))
+                text.append("\n")
+            if param['ncharges'] > 0:
+                for name, charge in param['charges'].items():
+                    text.append("{:<4s}  {:<}\n".format(name, charge))
+                text.append("\n")
+            if param['nbonds'] > 0:
+                for n, bond in enumerate(param['bonds']):
+                    text.append("{:<4s} {:<4s} ; ".format(*bond))
+                    if not (n+1) % 6: text.append("\n")
+                if (n+1) % 6: text.append("\n")
+                text.append("\n")
+            if param['nimpropers'] > 0:
+                for n, improper in enumerate(param['impropers']):
+                    text.append("{:<4s} {:<4s} {:<4s} {:<4s} ; ".format(*improper))
+                    if not (n+1) % 3: text.append("\n")
+                if (n+1) % 3: text.append("\n")
+                text.append("\n")
+            if header_comment:
+                text.insert(0,"!"+"-"*89+"\n")
+                text.insert(2,"!"+"-"*89+"\n")
+                text.insert(3, "! # Deletes, adds, charges, bonds and impropers\n")
+            return "".join(text)
+        elif form == 'links':
+            link1 = self.form_field('variants', key, header_comment, param[0]).replace("Variant", "Link")
+            link2 = self.form_field('variants', key, False, param[1]).replace(f"Variant {key}", "")
+            return link1 + link2
+        elif form == 'bonds':
+            header = "! Atoms       FC   Equil\n" if header_comment else ""
+            return header + "{key[0]:<4s} {key[1]:<4s} {k:>6.2f} {r:>7.3f}  {comment:<s}\n".format(**param)
+        elif form == 'angles':
+            header = "! Atoms           FC    Equil\n" if header_comment else ""
+            return header + "{key[0]:<4s} {key[1]:<4s} {key[2]:<4s} {k:>5.1f} {theta:>8.2f}  {comment:<s}\n".format(**param)
+        elif form in ('dihedrals', 'impropers'):
+            header = "! Atoms                  V0      V1      V2      V3\n" if header_comment else ""
+            return header + "{:<4s} {:<4s} {:<4s} {:<4s} {:>7.3f} {:>7.3f} {:>7.3f} {:>7.3f}  {:>s}\n".format(*param['key'], *param['v'], param['comment'])
+
     def raw_prepend(self, section:str, text:str) -> None:
         self._raw_insert(1, section, text)
 
@@ -299,9 +411,9 @@ class DynamoTopology():
         self._update_ndx()
 
 
-##  FORCE FIELS PARAMTERS CLASS  ######################################
+##  GROMACS TOPOLOGY CLASS  ###########################################
 
-class ffParameters():
+class GMXTopology():
 
     #TODO: support more parameters types
 
@@ -774,11 +886,11 @@ if __name__ == '__main__':
     # input file assign
     itp_files = args.itp
     ff_file  = args.ff
-    out_file = args.o if args.o is not None else 'dynamo.ff'
+    out_file = args.o or 'dynamo.ff'
     missing = [] if args.miss is None else list(fileinput.input(args.miss))
 
     # parameter conversion
-    param = ffParameters()
+    param = GMXTopology()
     for itp_file in itp_files:
         param.read_itp(itp_file, elem_simple=missing)
     if param.nmolec > 1:
