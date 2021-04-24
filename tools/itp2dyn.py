@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Description: Convert parameters from GROMACS' .itp (AMBER/GAFF) to DYNAMO's .ff (OPLS)
-# Last update: 23-04-2021
+# Last update: 24-04-2021
 
 # Inspired from ParmEd (gromacstop.py)
 # https://github.com/ParmEd/ParmEd
@@ -73,9 +73,68 @@ ptable_simple_inv = { n:elem for elem, n in ptable_simple.items() }
 ##  DYNAMO TOPOLOGY CLASS  ############################################
 
 class DynamoTopology():
-    """fDynamo force field topology"""
+    """
+        fDynamo force field topology
+    
+        Attributes
+        ----------
+        top : dict of dict
 
-    statements = ('mm_definitions', 'electrostatics', 'lennard_jones', 'units')
+            mm_definitions : str
+            electrostatic : float
+            lennard_jones : float
+            units : str
+
+            atomtypes : dict of dict(str)
+                atnum : int
+                sigma : float
+                epsilon : float
+                comment : str
+            residues : dict of dict(str)
+                natoms : int
+                nbonds : int
+                nimpropers : int
+                atoms : dict of dict(str)
+                    atomtype : str
+                    charge : float
+                bonds : list of tuples
+                impropers : list of tuples
+            variants : dict of dict(str)
+                ndeletes : int
+                nadds : int
+                ncharges : int
+                nbonds : int
+                nimpropers : int
+                deletes : list
+                adds : dict of dict(str)
+                    atomtype : str
+                    charge : float
+                charges : dict(str)
+                bonds : list of tuples
+                impropers : list of tuples
+            links : list of 'variants' dict
+            bonds : dict of dict(tuple)
+                k : float
+                r : float
+                comment : str
+            angles : dict of dict(tuple)
+                k : float
+                theta : float
+                comment : str
+            dihedrals : dict of dict(tuple)
+                v : list
+                comment : str
+            impropers : dict of dict(tuple)
+                v : list
+                comment : str
+    
+    """
+
+    statements_def = {'mm_definitions' : "OPLS_AA 1.0",
+                      'electrostatics' : 0.5,
+                      'lennard_jones'  : 0.5,
+                      'units'          : "kcal/mole"}
+    statements = tuple(statements_def.keys())
     sections = ('atomtypes', 'residues', 'variants', 'links',
                 'bonds', 'angles', 'dihedrals', 'impropers')
 
@@ -92,7 +151,7 @@ class DynamoTopology():
             self.read_ff(ff_file)
 
     def __bool__(self):
-        return bool(self.ff_file)
+        return self.ff_file or self.raw_top or any([bool(item) for key, item in self.top.items()])
 
     def __getattr__(self, attr:str):
         # return value of property statement
@@ -121,6 +180,12 @@ class DynamoTopology():
         if read_format:
             self._read_ff_format()
 
+    def write_ff(self, ff_file:str, build_raw:bool=True) -> None:
+        """Write fDynamo topology file (.ff)"""
+        if build_raw: self.build_raw()
+        with open(ff_file, 'wt') as f:
+            f.writelines(self.raw_top)
+
     def _read_ff_raw(self, ff_file:str) -> None:
         """Read fDynamo topology file to raw format (list of lines)"""
         with open(ff_file, 'rt') as f:
@@ -148,7 +213,7 @@ class DynamoTopology():
                 current_sect = None
 
             elif keyword == 'mm_definitions': # -----------------------
-                self.top['mm_definitions'] = content[1:]
+                self.top['mm_definitions'] = " ".join(content[1:])
 
             elif keyword in ('electrostatics', 'lennard_jones'): # ----
                 if content[1].lower() != "scale":
@@ -275,20 +340,82 @@ class DynamoTopology():
             else:
                 sys.stderr.write("WARNING: Unrecognized option in FF file -> {}\n".format("!".join(line)))
 
-    def _update_ndx(self) -> None:
-        """Update line indexes of raw stored topology"""
-        current_sect = None
-        for n, line in enumerate(self.raw_top):
-            # remove comments and empty lines
-            if not line.strip() or line.startswith("!"):
-                continue
-            keyword = line.split()[0].lower()
-            if keyword in self.sections or keyword == 'types':
-                current_sect = keyword if keyword != 'types' else 'atomtypes'
-                self.raw_ndx[current_sect][0] = n
-            elif keyword == 'end' and current_sect is not None:
-                self.raw_ndx[current_sect][1] = n
-                current_sect = None
+    def recount_top_n(self) -> None:
+        """Recount number of atoms/bonds/impropers for residues and variants/links"""
+        for name, top in self.top['residues'].items():
+            top['natoms'] = len(top['atoms'])
+            top['nbonds'] = len(top['bonds'])
+            top['nimpropers'] = len(top['impropers'])
+        for name, top in self.top['variants'].items():
+            top['ndeletes'] = len(top['deletes'])
+            top['nadds'] = len(top['adds'])
+            top['ncharges'] = len(top['charges'])
+            top['nbonds'] = len(top['bonds'])
+            top['nimpropers'] = len(top['impropers'])
+        for name, link in self.top['links'].items():
+            for top in link:
+                top['ndeletes'] = len(top['deletes'])
+                top['nadds'] = len(top['adds'])
+                top['ncharges'] = len(top['charges'])
+                top['nbonds'] = len(top['bonds'])
+                top['nimpropers'] = len(top['impropers'])
+
+    def assign_statements_def(self, override=False) -> None:
+        """Assign default statements to topology"""
+        for i in self.statements:
+            self.top[i] = self.statements_def[i] if not self.top[i] or override else self.top[i]
+
+    def build_raw(self) -> str:
+        """Generate raw formatted entry from top"""
+        self.assign_statements_def(override=False)
+        self.recount_top_n()
+        raw = ""
+        
+        # main header
+        raw += "!"+"="*79+"\n" + \
+               "!"+" "*22+"OPLS MM Definition File for Proteins\n" + \
+               "!"+"="*79+"\n\n"
+        
+        # statements
+        for sect in self.statements:
+            raw += self.form_field(sect)
+        raw += "\n"
+        
+        # atomtypes
+        if self.top['atomtypes']:
+            raw += "!"+"="*79+"\n" + \
+                   "!  Atom Type Definitions\n" + \
+                   "!"+"="*79+"\nTypes\n\n"
+            for n, name in enumerate(self.top['atomtypes'].keys()):
+                raw += self.form_field('atomtypes', name, header_comment=(n==0))
+            raw += "\nEnd\n\n"
+        
+        # residues / variants / links
+        for sect in ('residues', 'variants', 'links'):
+            if self.top[sect]:
+                raw += "!"+"="*79+"\n" + \
+                       "!  {} Definitions\n".format(sect[:-1].capitalize()) + \
+                       "!"+"="*79+"\n{}\n\n".format(sect.capitalize())
+                for name in self.top[sect].keys():
+                    raw += self.form_field(sect, name, header_comment=True)
+                raw += "End\n\n"
+
+        # parameters: bonds / angles / dihedrals / impropers
+        if self.top['bonds'] or self.top['angles'] or self.top['dihedrals'] or self.top['impropers']:
+            raw += "\n!"+"="*79+"\n" + \
+                    "!  Parameter Definitions\n" + \
+                    "!"+"="*79+"\nParameters\n\n"
+            for sect in ('bonds', 'angles', 'dihedrals', 'impropers'):
+                if self.top[sect]:
+                    raw += "{}\n".format(sect.capitalize())
+                    for n, name in enumerate(self.top[sect].keys()):
+                        raw += self.form_field(sect, name, header_comment=(n==0))
+                    raw += "End\n\n"
+            raw += "End\n"
+
+        raw += "End\n"
+        self.raw_top = [line+"\n" for line in raw.split("\n")]
+        return self.raw_str
 
     def form_field(self, form:str, key=None, header_comment:bool=False, external=None) -> str:
         """Build a formatted string of a specific field of the topology (statement/section)"""
@@ -302,7 +429,7 @@ class DynamoTopology():
 
         # statements
         if form == 'mm_definitions':
-            return "MM_Defintions {:<}\n".format(" ".join(topology))
+            return "MM_Defintions {:<}\n".format(topology)
         elif form == 'electrostatics':
             return "Electrostatics Scale {:<}\n".format(topology)
         elif form == 'lennard_jones':
@@ -338,8 +465,8 @@ class DynamoTopology():
                 if (n+1) % 3: text.append("\n")
                 text.append("\n")
             if header_comment:
-                text.insert(0,"!"+"-"*89+"\n")
-                text.insert(2,"!"+"-"*89+"\n")
+                text.insert(0,"!"+"-"*79+"\n")
+                text.insert(2,"!"+"-"*79+"\n")
                 text.insert(3, "! # Atoms, bonds and impropers\n")
             return "".join(text)
         elif form == 'variants':
@@ -371,8 +498,8 @@ class DynamoTopology():
                 if (n+1) % 3: text.append("\n")
                 text.append("\n")
             if header_comment:
-                text.insert(0,"!"+"-"*89+"\n")
-                text.insert(2,"!"+"-"*89+"\n")
+                text.insert(0,"!"+"-"*79+"\n")
+                text.insert(2,"!"+"-"*79+"\n")
                 text.insert(3, "! # Deletes, adds, charges, bonds and impropers\n")
             return "".join(text)
         elif form == 'links':
@@ -387,7 +514,7 @@ class DynamoTopology():
             return header + "{key[0]:<4s} {key[1]:<4s} {key[2]:<4s} {k:>5.1f} {theta:>8.2f}  {comment:<s}\n".format(**param)
         elif form in ('dihedrals', 'impropers'):
             header = "! Atoms                  V0      V1      V2      V3\n" if header_comment else ""
-            return header + "{:<4s} {:<4s} {:<4s} {:<4s} {:>7.3f} {:>7.3f} {:>7.3f} {:>7.3f}  {:>s}\n".format(*param['key'], *param['v'], param['comment'])
+            return header + "{:<4s} {:<4s} {:<4s} {:<4s} {:>7.3f} {:>7.3f} {:>7.3f} {:>7.3f}  {:>s}\n".format(*param['key'], *param['v'][0:4], param['comment'])
 
     def raw_prepend(self, section:str, text:str) -> None:
         self._raw_insert(1, section, text)
@@ -410,6 +537,21 @@ class DynamoTopology():
                 self.raw_top.insert(ndx[1], line)
         self._update_ndx()
 
+    def _update_ndx(self) -> None:
+        """Update line indexes of raw stored topology"""
+        current_sect = None
+        for n, line in enumerate(self.raw_top):
+            # remove comments and empty lines
+            if not line.strip() or line.startswith("!"):
+                continue
+            keyword = line.split()[0].lower()
+            if keyword in self.sections or keyword == 'types':
+                current_sect = keyword if keyword != 'types' else 'atomtypes'
+                self.raw_ndx[current_sect][0] = n
+            elif keyword == 'end' and current_sect is not None:
+                self.raw_ndx[current_sect][1] = n
+                current_sect = None
+
 
 ##  GROMACS TOPOLOGY CLASS  ###########################################
 
@@ -422,10 +564,10 @@ class GMXTopology():
         self.moleculetype = dict()
         self.system = ""
         self.molecules = dict()
-        self.opls = dict()
+        self.opls = DynamoTopology()
         self.missing = dict()
-        self.found = dict()
-        self.notfound = []
+        self.found = DynamoTopology()
+        self.notfound = set()
         if file_inp is not None:
             self.file_inp = file_inp
             self.read_itp(file_inp)
@@ -623,35 +765,31 @@ class GMXTopology():
 
     def gen_opls(self) -> None:
 
-        # dictionaries -> if a parameters repeats its is overwritten
-        self.opls = { 'atomtypes' : dict(),
-                      'residues' : dict(),
-                      'bonds' : dict(),
-                      'angles' : dict(),
-                      'dihedrals' : dict(),
-                      'impropers' : dict() }
+        self.opls.__init__()
+        top = self.opls.top
 
         # atom types
         for attype, atom in self.atomtypes.items():
-            self.opls['atomtypes'][attype.upper()] = [atom['atnum'], atom['sigma']*10, atom['epsilon']]
+            top['atomtypes'][attype.upper()] = {'atnum':atom['atnum'], 'sigma':atom['sigma']*10,
+                                                'epsilon':atom['epsilon'], 'comment':""}
 
         # atoms per residue and unified bonds/angles/dihedrals/impropers
         param = DihedralParam()
         for molname, molec in self.moleculetype.items():
             # atoms in residue
-            self.opls['residues'][molname] = dict()
+            top['residues'][molname] = {'natoms':0, 'nbonds':0, 'nimpropers':0, 'atoms':dict(), 'bonds':[], 'impropers':[]}
             for nr, atom in molec['atoms'].items():
-                if atom['name'] in self.opls['residues'][molname]:
+                if atom['name'] in top['residues'][molname]['atoms']:
                     raise ValueError(f"opls conversion -> duplicated atom definition (residue {molname}, atom {atom['name']})")
-                self.opls['residues'][molname][atom['name']] = [atom['attype'].upper(), atom['charge']]
+                top['residues'][molname]['atoms'][atom['name']] = {'atomtype':atom['attype'].upper(), 'charge':atom['charge']} 
             # bonds
             for atoms, bond in molec['bonds'].items():
                 attypes = tuple(molec['atoms'][nr]['attype'].upper() for nr in atoms)
-                self.opls['bonds'][attypes] = [bond['k']/1000, bond['r']*10]
+                top['bonds'][attypes] = {'k':bond['k']/1000, 'r':bond['r']*10, 'comment':""}
             # angles
             for atoms, angle in molec['angles'].items():
                 attypes = tuple(molec['atoms'][nr]['attype'].upper() for nr in atoms)
-                self.opls['angles'][attypes] = [angle['cth']/10, angle['theta']]
+                top['angles'][attypes] = {'k':angle['cth']/10, 'theta':angle['theta'], 'comment':""}
             # dihedrals/impropers
             for atoms, dihedral in molec['dihedrals'].items():
                 divider = 2*cal2J   # fitted by comparison
@@ -663,7 +801,9 @@ class GMXTopology():
                 if param.amber2opls():
                     # dihedral : 9 / improper : 4
                     param_type = 'dihedrals' if dihedral['funct'] == 9 else 'impropers'
-                    self.opls[param_type][attypes] = param.p['opls']
+                    top[param_type][attypes] = {'v':param.p['opls'], 'comment':""}
+
+        self.opls.recount_top_n()
 
     def read_miss(self, missing:list) -> None:
         self.missing = { 'bonds' : set(),
@@ -688,175 +828,60 @@ class GMXTopology():
             self.missing[ptype] = sorted(list(self.missing[ptype]))
 
     def find_miss(self) -> None:
-        self.found = { 'bonds' : dict(),
-                       'angles' : dict(),
-                       'dihedrals' : dict(),
-                       'impropers' : dict() }
+        self.found = DynamoTopology()
         self.notfound = set()
 
         if not self.opls: self.gen_opls()
 
         for ptype, missing in self.missing.items():
             for miss in missing:
-                if miss in self.opls[ptype]:
-                    self.found[ptype][miss] = self.opls[ptype][miss].copy()
-                elif (miss[::-1] in self.opls[ptype] and ptype != 'impropers'):
-                    self.found[ptype][miss] = self.opls[ptype][miss[::-1]].copy()
+                if miss in self.opls.top[ptype]:
+                    self.found.top[ptype][miss] = self.opls.top[ptype][miss].copy()
+                    self.found.top[ptype][miss]['comment'] += "Added" 
+                elif (miss[::-1] in self.opls.top[ptype] and ptype != 'impropers'):
+                    self.found.top[ptype][miss] = self.opls.top[ptype][miss[::-1]].copy()
+                    self.found.top[ptype][miss]['comment'] += "Added" 
                 else:
                     sys.stderr.write(f"WARNING: Parameter not found ({ptype[0]}) ->  {'  '.join(miss)}\n")
-                    n_zeros = 2 if ptype in ('bonds', 'angles') else 5 if ptype in ('dihedrals', 'impropers') else 0
-                    self.found[ptype][miss] = [0]*n_zeros
                     self.notfound.add(miss)
+                    if ptype == 'bonds':
+                        self.found.top[ptype][miss] = {'k':0., 'r':0., 'comment':"Added - WARNING: Parameter not found"}
+                    elif ptype == 'angles':
+                        self.found.top[ptype][miss] = {'k':0., 'theta':0., 'comment':"Added - WARNING: Parameter not found"}
+                    elif ptype in ('dihedrals', 'impropers'):
+                        self.found.top[ptype][miss] = {'v':[0.]*4, 'theta':0., 'comment':"Added - WARNING: Parameter not found"}
 
     def write_dynamo(self, file_out:str=None, only_missing:bool=False, ff_file:str=None) -> None:
 
-        #TODO: less redundant method between new file and append
-
-        def _check_notfound(atoms):
-            return " "*4+"! WARNING: Parameter not found" if atoms in self.notfound else ""
-
-        if not self.opls:
-            self.gen_opls()
+        if not self.opls: self.gen_opls()
         if only_missing and not self.missing:
             raise ValueError("No missing values provided")
         elif only_missing and not self.found:
             self.find_miss()
 
-        # NEW FILE ----------------------------------------------------
+        forcefield = self.found if only_missing else self.opls
+
+        # new file
         if not ff_file:
-            f = []
-            f.extend("!"+"="*79+"\n"+
-                    "!"+" "*22+"OPLS MM Definition File for Proteins\n"+
-                    "!"+"="*79+"\n"+
-                    "!"+" "*22+f"Automatically generated from: {self.file_inp}\n"+
-                    "!"+"-"*79+"\n\n")
-            f.extend(dedent("""
-                                MM_Definitions OPLS_AA 1.0\n
-                                Electrostatics Scale 0.5
-                                Lennard_Jones  Scale 0.5\n
-                                Units kcal/mole\n\n
-                            """))
+            for name, residue in self.opls.top['residues'].items():
+                forcefield.top['residues'][name] = residue.copy()
+            f = forcefield.build_raw()
 
-            # atomtypes
-            if self.opls['atomtypes'] and not only_missing:
-                f.extend("!"+"="*79+"\n" +
-                        "!  Atom Type Definitions\n" +
-                        "!"+"="*79+"\n"+
-                        "Types\n\n"+
-                        "! Atom Name     Atomic Number        Sigma      Epsilon\n")
-                for attype, atom in self.opls['atomtypes'].items():
-                    f.extend("{:<10s}   {:>10}       {:>12.5f} {:>12.5f}\n".format(attype, *atom))
-                f.extend("\nEnd\n\n")
-
-            # residues
-            if self.opls['residues']:
-                f.extend("!"+"="*79+"\n" +
-                        "!  Residue Definitions\n" +
-                        "!"+"="*79+"\n" +
-                        "Residues\n")
-                for resname, atoms in self.opls['residues'].items():
-                    f.extend("\n!"+"-"*79+"\n" +
-                            "Residue {}\n".format(resname) +
-                            "!"+"-"*79+"\n" +
-                            "! # Atoms, bonds and impropers\n" +
-                            "{:>3d}{:>3d}{:>3d}\n".format(len(atoms),0,0))
-                    for name, atom in atoms.items():
-                        f.extend("{:<4s}  {:<4s} {:>6.2f}\n".format(name, *atom))
-                f.extend("\nEnd\n")
-
-            if only_missing:
-                self.opls = self.found
-
-            # parameters
-            f.extend("\n\n"+
-                    "!"+"="*79+"\n" +
-                    "!  Parameter Definitions\n" +
-                    "!"+"="*79+"\n" +
-                    "Parameters\n")
-
-            # bonds
-            if self.opls['bonds']:
-                f.extend("\nBonds\n"+
-                        "! Atoms       FC   Equil\n")
-                for atoms, bond in self.opls['bonds'].items():
-                    f.extend("{:<4s} {:<4s} {:>6.2f} {:>7.3f} {:<10s}\n".format(
-                            *atoms, *bond, _check_notfound(atoms)))
-                f.extend("End\n")
-            # angles
-            if self.opls['angles']:
-                f.extend("\nAngles\n"+
-                        "! Atoms           FC    Equil\n")
-                for atoms, angle in self.opls['angles'].items():
-                    f.extend("{:<4s} {:<4s} {:<4s} {:>5.1f}  {:>8.2f} {:<10s}\n".format(
-                            *atoms, *angle, _check_notfound(atoms)))
-                f.extend("End\n")
-            # dihedrals
-            if self.opls['dihedrals']:
-                f.extend("\nDihedrals\n"+
-                        "! Atoms                  V0      V1      V2      V3\n")
-                for atoms, dihedral in self.opls['dihedrals'].items():
-                    f.extend("{:<4s} {:<4s} {:<4s} {:<4s} {:>7.3f} {:>7.3f} {:>7.3f} {:>7.3f} {:>10s}\n".format(
-                            *atoms, *dihedral[:-1], _check_notfound(atoms)))
-                f.extend("End\n")
-            # impropers
-            if self.opls['impropers']:
-                f.extend("\nImpropers\n"+
-                        "! Atoms                  V0      V1      V2      V3\n")
-                for atoms, improper in self.opls['impropers'].items():
-                    f.extend("{:<4s} {:<4s} {:<4s} {:<4s} {:>7.3f} {:>7.3f} {:>7.3f} {:>7.3f} {:>10s}\n".format(
-                            *atoms, *improper[:-1], _check_notfound(atoms)))
-                f.extend("End\n")
-
-            f.extend("\nEnd\nEnd\n")
-            f = "".join(f)
-
-        # EXISTING FF TOPOLOGY ----------------------------------------
+        # existing ff topology file
         else:
-            ff = DynamoTopology(ff_file)
-            # residues
-            for resname, atoms in reversed(self.opls['residues'].items()):
-                f = []
-                f.extend("\n!"+"-"*79+"\n" +
-                         "Residue {}\n".format(resname) +
-                         "!"+"-"*79+"\n" +
-                         "! # Atoms, bonds and impropers\n" +
-                         "{:>3d}{:>3d}{:>3d}\n".format(len(atoms), 0, 0))
-                for name, atom in atoms.items():
-                    f.extend("{:<4s}  {:<4s} {:>6.2f}\n".format(name, *atom))
-                ff.raw_prepend('residues', "".join(f))
-
-            if only_missing:
-                self.opls = self.found
-
-            # bonds
-            f = ["! Additional parameters\n"]
-            for atoms, bond in self.opls['bonds'].items():
-                f.extend("{:<4s} {:<4s} {:>6.2f} {:>7.3f} {:<10s}\n".format(
-                         *atoms, *bond, _check_notfound(atoms)))
-            ff.raw_append('bonds', "".join(f))
-
-            # angles
-            f = ["! Additional parameters\n"]
-            for atoms, angle in self.opls['angles'].items():
-                f.extend("{:<4s} {:<4s} {:<4s} {:>5.1f}  {:>8.2f} {:<10s}\n".format(
-                         *atoms, *angle, _check_notfound(atoms)))
-            ff.raw_append('angles', "".join(f))
-
-            # dihedrals
-            f = ["! Additional parameters\n"]
-            for atoms, dihedral in self.opls['dihedrals'].items():
-                f.extend("{:<4s} {:<4s} {:<4s} {:<4s} {:>7.3f} {:>7.3f} {:>7.3f} {:>7.3f} {:>10s}\n".format(
-                         *atoms, *dihedral[:-1], _check_notfound(atoms)))
-            ff.raw_append('dihedrals', "".join(f))
-
-            # impropers
-            f = ["! Additional parameters\n"]
-            for atoms, improper in self.opls['impropers'].items():
-                f.extend("{:<4s} {:<4s} {:<4s} {:<4s} {:>7.3f} {:>7.3f} {:>7.3f} {:>7.3f} {:>10s}\n".format(
-                         *atoms, *improper[:-1], _check_notfound(atoms)))
-            ff.raw_append('impropers', "".join(f))
-
-            f = ff.raw_str
+            ff_external = DynamoTopology(ff_file)
+            # add residue or modify atom charges
+            for name, residue in self.opls.top['residues'].items():
+                if name not in ff_external.top['residues']:
+                    ff_external.top['residues'][name] = residue.copy()
+                else:
+                    for atom, param in residue['atoms'].items():
+                        ff_external.top['residues'][name]['atoms'][atom]['charge'] = param['charge']
+            # add bonds / angles / dihedrals / impropers
+            for sect in ('bonds', 'angles', 'dihedrals', 'impropers'):
+                for name, param in forcefield.top[sect].items():
+                    ff_external.top[sect][name] = param.copy()
+            f = ff_external.build_raw()
 
         if file_out:
             with open(file_out, 'wt') as outfile:
