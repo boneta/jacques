@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Description: Convert parameters from GROMACS' .itp (AMBER/GAFF) to DYNAMO's .ff (OPLS)
-# Last update: 24-04-2021
+# Last update: 25-04-2021
 
 # Inspired from ParmEd (gromacstop.py)
 # https://github.com/ParmEd/ParmEd
@@ -10,7 +10,9 @@ import argparse
 import fileinput
 import re
 import sys
+from copy import deepcopy
 from textwrap import dedent
+from typing import Union
 
 from amber2opls import DihedralParam
 
@@ -150,25 +152,42 @@ class DynamoTopology():
         if ff_file is not None:
             self.read_ff(ff_file)
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return self.ff_file or self.raw_top or any([bool(item) for key, item in self.top.items()])
 
-    def __getattr__(self, attr:str):
-        # return value of property statement
-        if attr in self.statements:
-            return self.top[attr]
-        # return list of dictionary keys
-        elif attr in self.sections:
-            return list(self.top[attr].keys())
-        else:
-            raise KeyError("Unkown attribute")
+    def __or__(self, other:'DynamoTopology') -> 'DynamoTopology':
+        new = deepcopy(self)
+        return new.union(other, None)
 
-    def __repr__(self):
+    def __sub__(self, other:'DynamoTopology') -> 'DynamoTopology':
+        new = deepcopy(self)
+        return new.difference(other, None)
+
+    def __repr__(self) -> str:
         return self.raw_str
 
     @property
     def raw_str(self) -> str:
         return "".join(self.raw_top)
+
+    @property
+    def residues(self) -> list:
+        return list(self.top['residues'].keys())
+    
+    def union(self, arg:'DynamoTopology', section:str = None) -> 'DynamoTopology':
+        """Combine to topology classes"""
+        for sect in self.sections:
+            if section and section != sect: continue
+            self.top[sect].update(arg.top[sect])
+        return self
+
+    def difference(self, arg:'DynamoTopology', section:str = None) -> 'DynamoTopology':
+        """Substract a topology class"""
+        for sect in self.sections:
+            if section and section != sect: continue
+            for key in arg.top[sect]:
+                self.top[sect].pop(key, None)
+        return self
 
     def read_ff(self, ff_file:str, read_format:bool=True) -> None:
         """Read fDynamo topology file (.ff)"""
@@ -234,9 +253,10 @@ class DynamoTopology():
                           'comment' : comment }
                 self.top['atomtypes'][attype] = param
 
-            elif current_sect == 'residues': # ------------------------
+            elif current_sect == 'residues' or keyword == 'residue':
                 # new residue
                 if keyword == 'residue':
+                    current_sect = 'residues'
                     name = content[1].upper()
                     self.top['residues'][name] = dict()
                     continue
@@ -360,14 +380,14 @@ class DynamoTopology():
                 top['nbonds'] = len(top['bonds'])
                 top['nimpropers'] = len(top['impropers'])
 
-    def assign_statements_def(self, override=False) -> None:
+    def assign_statements_def(self, overwrite:bool=False) -> None:
         """Assign default statements to topology"""
         for i in self.statements:
-            self.top[i] = self.statements_def[i] if not self.top[i] or override else self.top[i]
+            self.top[i] = self.statements_def[i] if not self.top[i] or overwrite else self.top[i]
 
     def build_raw(self) -> str:
         """Generate raw formatted entry from top"""
-        self.assign_statements_def(override=False)
+        self.assign_statements_def(overwrite=False)
         self.recount_top_n()
         raw = ""
         
@@ -852,7 +872,7 @@ class GMXTopology():
                     elif ptype in ('dihedrals', 'impropers'):
                         self.found.top[ptype][miss] = {'v':[0.]*4, 'theta':0., 'comment':"Added - WARNING: Parameter not found"}
 
-    def write_dynamo(self, file_out:str=None, only_missing:bool=False, ff_file:str=None) -> None:
+    def write_dynamo(self, file_out:str=None, only_missing:bool=False, ff_file:Union[str,list]=None) -> None:
 
         if not self.opls: self.gen_opls()
         if only_missing and not self.missing:
@@ -864,13 +884,18 @@ class GMXTopology():
 
         # new file
         if not ff_file:
-            for name, residue in self.opls.top['residues'].items():
-                forcefield.top['residues'][name] = residue.copy()
+            forcefield.union(self.opls, 'residues')
             f = forcefield.build_raw()
 
         # existing ff topology file
         else:
-            ff_external = DynamoTopology(ff_file)
+            ff_external = DynamoTopology()
+            # check single file or list of files
+            if isinstance(ff_file, list):
+                for i in ff_file:
+                    ff_external.union(DynamoTopology(i))
+            else:
+                ff_external.read_ff(ff_file)
             # add residue or modify atom charges
             for name, residue in self.opls.top['residues'].items():
                 if name not in ff_external.top['residues']:
@@ -880,8 +905,7 @@ class GMXTopology():
                         ff_external.top['residues'][name]['atoms'][atom]['charge'] = param['charge']
             # add bonds / angles / dihedrals / impropers
             for sect in ('bonds', 'angles', 'dihedrals', 'impropers'):
-                for name, param in forcefield.top[sect].items():
-                    ff_external.top[sect][name] = param.copy()
+                ff_external.union(forcefield, sect)
             f = ff_external.build_raw()
 
         if file_out:
@@ -900,18 +924,18 @@ if __name__ == '__main__':
                                                 '    .itp (AMBER/GAFF) -> .ff (OPLS)\n',
                                     formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('itp', metavar='.itp', type=str, nargs='+',
-                        help='input GROMACS parameters file')
+                        help='input GROMACS parameters files')
     parser.add_argument('-o', metavar='.ff', type=str,
                         help='output DYNAMO parameters file (def: dynamo.ff)')
-    parser.add_argument('-ff', metavar='.ff', type=str,
-                        help='optional DYNAMO topology file to include the new parameters')
+    parser.add_argument('-ff', metavar='.ff', type=str, nargs='+',
+                        help='optional DYNAMO topology files to take old parameters')
     parser.add_argument("-miss", metavar="", nargs="*",
                         help='reference DYNAMO error message to convert only missing parameters (file or piped)')
     args = parser.parse_args()
 
     # input file assign
     itp_files = args.itp
-    ff_file  = args.ff
+    ff_files  = args.ff
     out_file = args.o or 'dynamo.ff'
     missing = [] if args.miss is None else list(fileinput.input(args.miss))
 
@@ -923,4 +947,4 @@ if __name__ == '__main__':
         sys.stderr.write(f"NOTE: {param.nmolec} molecules found -> {' '.join(param.molnames)}\n")
     param.gen_opls()
     if missing: param.read_miss(missing)
-    param.write_dynamo(out_file, only_missing=missing, ff_file=ff_file)
+    param.write_dynamo(out_file, only_missing=missing, ff_file=ff_files)
