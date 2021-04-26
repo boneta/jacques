@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Description: Convert parameters from GROMACS' .itp (AMBER/GAFF) to DYNAMO's .ff (OPLS)
-# Last update: 25-04-2021
+# Last update: 26-04-2021
 
 # Inspired from ParmEd (gromacstop.py)
 # https://github.com/ParmEd/ParmEd
@@ -471,7 +471,7 @@ class DynamoTopology():
             text.append("Residue {:<s}\n".format(key))
             text.append("{natoms:>4d} {nbonds:>4d} {nimpropers:>4d}\n\n".format(**param))
             for name, atom in param['atoms'].items():
-                text.append("{:<4s}  {atomtype:<4s} {charge:>6.2f}\n".format(name, **atom))
+                text.append("{:<4s}  {atomtype:<4s} {charge:>8.4f}\n".format(name, **atom))
             text.append("\n")
             if param['nbonds'] > 0:
                 for n, bond in enumerate(param['bonds']):
@@ -500,7 +500,7 @@ class DynamoTopology():
                 text.append("\n\n")
             if param['nadds'] > 0:
                 for name, add in param['adds'].items():
-                    text.append("{:<4s}  {atomtype:<4s} {charge:>6.2f}\n".format(name, **add))
+                    text.append("{:<4s}  {atomtype:<4s} {charge:>8.4f}\n".format(name, **add))
                 text.append("\n")
             if param['ncharges'] > 0:
                 for name, charge in param['charges'].items():
@@ -538,9 +538,11 @@ class DynamoTopology():
             return header + "{:<4s} {:<4s} {:<4s} {:<4s} {:>7.3f} {:>7.3f} {:>7.3f} {:>7.3f}  {:>s}\n".format(*param['key'], *param['v'][0:4], param['comment'])
 
     def raw_prepend(self, section:str, text:str) -> None:
+        """Insert a new entry to the raw topology at the beginning of a specific section"""
         self._raw_insert(1, section, text)
 
     def raw_append(self, section:str, text:str) -> None:
+        """Insert a new entry to the raw topology at the end of a specific section"""
         self._raw_insert(-1, section, text)
 
     def _raw_insert(self, action:int, section:str, text:str) -> None:
