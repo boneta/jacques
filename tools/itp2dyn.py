@@ -9,6 +9,7 @@
 import argparse
 import fileinput
 import re
+import readline
 import sys
 from copy import deepcopy
 from textwrap import dedent
@@ -157,11 +158,11 @@ class DynamoTopology():
 
     def __or__(self, other:'DynamoTopology') -> 'DynamoTopology':
         new = deepcopy(self)
-        return new.union(other, None)
+        return new.union(other, None, True)
 
     def __sub__(self, other:'DynamoTopology') -> 'DynamoTopology':
         new = deepcopy(self)
-        return new.difference(other, None)
+        return new.difference(other, None, True)
 
     def __repr__(self) -> str:
         return self.raw_str
@@ -174,18 +175,22 @@ class DynamoTopology():
     def residues(self) -> list:
         return list(self.top['residues'].keys())
     
-    def union(self, arg:'DynamoTopology', section:str = None) -> 'DynamoTopology':
+    def union(self, other:'DynamoTopology', section:str=None, overwrite:bool=True) -> 'DynamoTopology':
         """Combine to topology classes"""
         for sect in self.sections:
             if section and section != sect: continue
-            self.top[sect].update(arg.top[sect])
+            if overwrite:
+                self.top[sect].update(other.top[sect])
+            else:
+                for name, param in other.top[sect].items():
+                    self.top[sect][name] = self.top[sect].get(name, param)
         return self
 
-    def difference(self, arg:'DynamoTopology', section:str = None) -> 'DynamoTopology':
+    def difference(self, other:'DynamoTopology', section:str=None) -> 'DynamoTopology':
         """Substract a topology class"""
         for sect in self.sections:
             if section and section != sect: continue
-            for key in arg.top[sect]:
+            for key in other.top[sect]:
                 self.top[sect].pop(key, None)
         return self
 
@@ -584,13 +589,13 @@ class GMXTopology():
 
     def __init__(self, file_inp=None):
         self.atomtypes = dict()
+        self.atomtypes_rosetta = dict()
         self.moleculetype = dict()
         self.system = ""
         self.molecules = dict()
         self.opls = DynamoTopology()
         self.missing = dict()
         self.found = DynamoTopology()
-        self.notfound = set()
         if file_inp is not None:
             self.file_inp = file_inp
             self.read_itp(file_inp)
@@ -605,7 +610,7 @@ class GMXTopology():
     def nmolec(self) -> int:
         return len(self.moleculetype)
 
-    def read_itp(self, file_inp:str, elem_simple:bool=False) -> None:
+    def read_itp(self, file_inp:str, atomtypes:str='literal') -> None:
 
         # TODO: implements more parameter types
 
@@ -620,8 +625,23 @@ class GMXTopology():
             msg = f"{section} -> Wrong nuber of parameters (file {file_inp}, line {nline+1})"
             if not nmin <= nparam <= nmax: raise ValueError(msg)
 
+        def _read_atomtype(attype:str, mode:str='literal'):
+                if mode not in ('literal','inter','element'):
+                    raise ValueError("Unkown atomtype reading mode")
+                if mode == 'literal':
+                    readed_attype = attype
+                elif mode == 'inter':
+                    readline.set_startup_hook(lambda: readline.insert_text(attype.upper()))
+                    try:
+                        readed_attype = input("Interactive atomtype reading: ")
+                    finally:
+                        readline.set_startup_hook()
+                elif mode == 'element':
+                    readed_attype = re.findall(r'[a-zA-Z]', attype)[0]
+                self.atomtypes_rosetta[attype] = readed_attype
+                return readed_attype
+
         # process line by line
-        attype_re = re.compile(r'[a-zA-Z]') if elem_simple else re.compile(r'.+')
         current_sele = None
         for nline, line in enumerate(ftop):
             if not line.strip() or line.startswith((";","#")): continue
@@ -661,14 +681,14 @@ class GMXTopology():
                         param['bond_type'] = str(words[1])
                 # assign rest, from last to first
                 words = words[::-1]
-                attype = attype_re.findall(str(words[-1]))[0]
+                attype = _read_atomtype(str(words[-1]), atomtypes)
                 param['epsilon'] = float(words[0])
                 param['sigma'] = float(words[1])
                 param['ptype'] = str(words[2])
                 param['charge'] = float(words[3])
                 param['mass'] = float(words[4])
                 # guess atomic number if absent
-                if not param['atnum']: param['atnum'] = ptable_simple[attype[0].upper()]
+                if not param['atnum']: param['atnum'] = ptable_simple[re.findall(r'[a-zA-Z]', words[-1])[0].upper()]
                 self.atomtypes[attype] = param
 
             elif current_sele == 'moleculetype': # --------------------
@@ -699,7 +719,7 @@ class GMXTopology():
                 words = line.split(";")[0].split()  # remove comments and list
                 _check_num_param(words, current_sele, nline, 8, 8)
                 nr = int(words[0])
-                param['attype'] = attype_re.findall(str(words[1]))[0]
+                param['attype'] = self.atomtypes_rosetta[str(words[1])]
                 param['resid'] = int(words[2])
                 param['resname'] = str(words[3])
                 param['name'] = str(words[4])
@@ -852,27 +872,22 @@ class GMXTopology():
 
     def find_miss(self) -> None:
         self.found = DynamoTopology()
-        self.notfound = set()
-
         if not self.opls: self.gen_opls()
 
         for ptype, missing in self.missing.items():
             for miss in missing:
                 if miss in self.opls.top[ptype]:
                     self.found.top[ptype][miss] = self.opls.top[ptype][miss].copy()
-                    self.found.top[ptype][miss]['comment'] += "Added" 
                 elif (miss[::-1] in self.opls.top[ptype] and ptype != 'impropers'):
                     self.found.top[ptype][miss] = self.opls.top[ptype][miss[::-1]].copy()
-                    self.found.top[ptype][miss]['comment'] += "Added" 
                 else:
                     sys.stderr.write(f"WARNING: Parameter not found ({ptype[0]}) ->  {'  '.join(miss)}\n")
-                    self.notfound.add(miss)
                     if ptype == 'bonds':
-                        self.found.top[ptype][miss] = {'k':0., 'r':0., 'comment':"Added - WARNING: Parameter not found"}
+                        self.found.top[ptype][miss] = {'k':0., 'r':0., 'comment':"WARNING: Parameter not found."}
                     elif ptype == 'angles':
-                        self.found.top[ptype][miss] = {'k':0., 'theta':0., 'comment':"Added - WARNING: Parameter not found"}
+                        self.found.top[ptype][miss] = {'k':0., 'theta':0., 'comment':"WARNING: Parameter not found."}
                     elif ptype in ('dihedrals', 'impropers'):
-                        self.found.top[ptype][miss] = {'v':[0.]*4, 'theta':0., 'comment':"Added - WARNING: Parameter not found"}
+                        self.found.top[ptype][miss] = {'v':[0.]*4, 'theta':0., 'comment':"WARNING: Parameter not found."}
 
     def write_dynamo(self, file_out:str=None, only_missing:bool=False, ff_file:Union[str,list]=None) -> None:
 
@@ -882,6 +897,7 @@ class GMXTopology():
         elif only_missing and not self.found:
             self.find_miss()
 
+        # forcefield = self.found.union(self.opls, 'atomtypes', overwrite=False) if only_missing else self.opls
         forcefield = self.found if only_missing else self.opls
 
         # new file
@@ -895,19 +911,22 @@ class GMXTopology():
             # check single file or list of files
             if isinstance(ff_file, list):
                 for i in ff_file:
-                    ff_external.union(DynamoTopology(i))
+                    ff_external.union(DynamoTopology(i), overwrite=True)
             else:
                 ff_external.read_ff(ff_file)
-            # add residue or modify atom charges
+            # add residue or modify atom atomtype/charges
             for name, residue in self.opls.top['residues'].items():
                 if name not in ff_external.top['residues']:
                     ff_external.top['residues'][name] = residue.copy()
                 else:
                     for atom, param in residue['atoms'].items():
                         ff_external.top['residues'][name]['atoms'][atom]['charge'] = param['charge']
-            # add bonds / angles / dihedrals / impropers
-            for sect in ('bonds', 'angles', 'dihedrals', 'impropers'):
-                ff_external.union(forcefield, sect)
+                        ff_external.top['residues'][name]['atoms'][atom]['atomtype'] = param['atomtype']
+            # add atomtypes / bonds / angles / dihedrals / impropers
+            for sect in ('atomtypes', 'bonds', 'angles', 'dihedrals', 'impropers'):
+                for name, param in forcefield.top[sect].items():
+                    param['comment'] = "Added " + param['comment']
+                ff_external.union(forcefield, sect, overwrite=False)
             f = ff_external.build_raw()
 
         if file_out:
@@ -929,10 +948,13 @@ if __name__ == '__main__':
                         help='input GROMACS parameters files')
     parser.add_argument('-o', metavar='.ff', type=str,
                         help='output DYNAMO parameters file (def: dynamo.ff)')
-    parser.add_argument('-ff', metavar='.ff', type=str, nargs='+',
-                        help='optional DYNAMO topology files to take old parameters')
-    parser.add_argument("-miss", metavar="", nargs="*",
+    parser.add_argument('--ff', metavar='.ff', type=str, nargs='+',
+                        help='DYNAMO topology files to take old parameters')
+    parser.add_argument("--miss", metavar="", nargs="*",
                         help='reference DYNAMO error message to convert only missing parameters (file or piped)')
+    parser.add_argument("--atomtypes", metavar="<>", type=str, default='literal',
+                        choices=('literal', 'inter', 'element'),
+                        help='mode for atomtypes reading {literal, inter, element} (def: literal)')
     args = parser.parse_args()
 
     # input file assign
@@ -940,11 +962,12 @@ if __name__ == '__main__':
     ff_files  = args.ff
     out_file = args.o or 'dynamo.ff'
     missing = [] if args.miss is None else list(fileinput.input(args.miss))
+    atomtypes = args.atomtypes
 
     # parameter conversion
     param = GMXTopology()
     for itp_file in itp_files:
-        param.read_itp(itp_file, elem_simple=missing)
+        param.read_itp(itp_file, atomtypes=atomtypes)
     if param.nmolec > 1:
         sys.stderr.write(f"NOTE: {param.nmolec} molecules found -> {' '.join(param.molnames)}\n")
     param.gen_opls()
