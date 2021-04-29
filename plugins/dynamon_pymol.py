@@ -21,7 +21,7 @@
 
 """
 
-__version__ = '0.2'
+__version__ = '0.3'
 
 # PDB Strict formatting
 # ATOM/HETATM  serial  name   altLoc  resName  chainID  resSeq  iCode  x       y     z      occupancy  tempFactor  segment  element  charge
@@ -194,7 +194,7 @@ def load_crd(filename, object=''):
     # convert atoms to pdb format
     atomic_number_inv = { n:elem for elem, n in atomic_number.items() }
     pdb_file = []
-    big_resi = []
+    big_resi = dict()
     a = { 'ATOM'       : "ATOM",
           'serial'     : 0,
           'name'       : "",
@@ -235,7 +235,9 @@ def load_crd(filename, object=''):
             formatted_line = "{:<6s}{:>5d} {:^4s}{:1s}{:>3s} {:1s}{:>4.4}{:1s}   {:>8.3f}{:>8.3f}{:>8.3f}{:>6.2f}{:>6.2f}      {:<4s}{:>2s}{:<2s}\n" \
                 .format(a['ATOM'], a['serial'], a['name'], a['altLoc'], a['resName'], a['chainID'], str(a['resSeq']), a['iCode'],
                         a['x'], a['y'], a['z'], a['occupancy'], a['tempFactor'], a['segment'], a['element'], a['charge'])
-            if a['resSeq'] > 9999: big_resi.append([a['serial'], a['resSeq']])  # get atom id and resi if > 9999
+            # get atom id and resi for overfloating residue numbers (>9999)
+            if a['resSeq'] > 9999:
+                big_resi.setdefault(a['resSeq'], []).append("id "+str(a['serial']))
             pdb_file.append(formatted_line)
 
     # load as pdb string
@@ -243,8 +245,8 @@ def load_crd(filename, object=''):
     cmd.read_pdbstr(pdb_whole, object)
 
     # restore large residue numbers cutted-out by PDB format contraints
-    for a in big_resi:
-        cmd.alter(f"model {object} & id {a[0]}", f"resi={a[1]}")
+    for resSeq, id_list in big_resi.items():
+        cmd.alter(f"( {' | '.join(id_list)} ) & model {object}", f"resi={resSeq}")
 
     print(f" DYNAMON: \"{filename}\" loaded as \"{object}\"")
 
