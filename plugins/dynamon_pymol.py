@@ -230,7 +230,6 @@ def load_crd(filename, object=''):
             a['x']       = float(line[3])
             a['y']       = float(line[4])
             a['z']       = float(line[5])
-            if a['name'] == "OXT": continue     # ignore OXT atom with usually weird coordinates
             if len(a['name']) == 3: a['name'] = ' '+a['name']     # correct alignment of atom name
             # format pdb
             formatted_line = "{:<6s}{:>5d} {:^4s}{:1s}{:>3s} {:1s}{:>4.4}{:1s}   {:>8.3f}{:>8.3f}{:>8.3f}{:>6.2f}{:>6.2f}      {:<4s}{:>2s}{:<2s}\n" \
