@@ -13,7 +13,7 @@
 
   - Load/read extended file formats:  load  filename [...]
         .ff    -  fDynamo's force field file
-                  re-bond accordingly and display properties:
+                  re-bond ligands accordingly and display properties:
                   atomtypes as 'text_type' and charges as 'partial_charges'
         .crd   -  fDynamo's coordinates file
         .dynn  -  DYNAMON options/selection file
@@ -38,6 +38,7 @@ import fileinput
 
 from pymol import cmd, importing
 from chempy import atomic_number
+from chempy.protein_residues import normal as aa_dict
 
 
 ##  FUNCTIONS  ########################################################
@@ -179,8 +180,8 @@ def load_ff(filename):
     """
         Load a fDynamo force field file (.ff)
 
-        Re-bond accordingly
-        Alter properties:
+        Re-bond ligands accordingly
+        Alter properties of all atoms:
          - 'text_type' : atomtypes
          - 'partial_charges' : charges
 
@@ -191,6 +192,11 @@ def load_ff(filename):
     """
 
     print(f" DYNAMON: reading \"{filename}\"")
+
+    # residue names excluded from re-bonding
+    rebond_excluded = []
+    rebond_excluded.extend(aa_dict.keys())
+    rebond_excluded.extend(["SOL", "NA", "CL"])
 
     # read file as list of strings
     with open(filename, "rt") as f:
@@ -243,6 +249,7 @@ def load_ff(filename):
             cmd.alter(f"resn {resname} & name {name}", f"partial_charge={param['charge']}")
             cmd.alter(f"resn {resname} & name {name}", f"text_type=\'{param['atomtype']}\'")
         # unbond all and re-bond
+        if resname in rebond_excluded: continue
         cmd.unbond(f"resn {resname}", f"resn {resname}")
         for bond in top['bonds']:
             cmd.bond(f"resn {resname} & name {bond[0]}", f"resn {resname} & name {bond[1]}")
