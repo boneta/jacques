@@ -12,6 +12,9 @@
         write_nofix  filename [, selection ]
 
   - Load/read extended file formats:  load  filename [...]
+        .ff    -  fDynamo's force field file
+                  re-bond accordingly and display properties:
+                  atomtypes as 'text_type' and charges as 'partial_charges'
         .crd   -  fDynamo's coordinates file
         .dynn  -  DYNAMON options/selection file
 
@@ -21,7 +24,7 @@
 
 """
 
-__version__ = '0.3'
+__version__ = '0.4'
 
 # PDB Strict formatting
 # ATOM/HETATM  serial  name   altLoc  resName  chainID  resSeq  iCode  x       y     z      occupancy  tempFactor  segment  element  charge
@@ -172,6 +175,79 @@ def load_dynn(filename):
         i += 1
 
 
+def load_ff(filename):
+    """
+        Load a fDynamo force field file (.ff)
+
+        Re-bond accordingly
+        Alter properties:
+         - 'text_type' : atomtypes
+         - 'partial_charges' : charges
+
+        Parameters
+        ----------
+        filename : str
+            file path
+    """
+
+    print(f" DYNAMON: reading \"{filename}\"")
+
+    # read file as list of strings
+    with open(filename, "rt") as f:
+        ff_file = f.readlines()
+        # remove comment lines and blank lines
+        ff_file = [line.strip() for line in ff_file if line.strip() and not line.startswith("!")]
+
+    # read residue atoms and bonds
+    topology = dict()
+    current_sect = None
+    for line in ff_file:
+        line = line.split("!")
+        keyword = line[0].split()[0].lower()
+        content = line[0].split()
+        if keyword == 'end':
+            current_sect = None
+        elif keyword == 'residues':
+            current_sect = keyword
+        elif current_sect == 'residues' or keyword == 'residue':
+            if keyword == 'residue':  # new residue
+                current_sect = 'residues'
+                resname = content[1]
+                topology[resname] = dict()
+                continue
+            top = topology[resname]
+            if not topology[resname]: # first line (numbers)
+                top['natoms'] = int(content[0])
+                top['nbonds'] = int(content[1])
+                top['nimpropers'] = int(content[2])
+                top['atoms'] = dict()
+                top['bonds'] = []
+                top['impropers'] = []
+            elif len(top['atoms']) < top['natoms']:
+                param = { 'atomtype' : str(content[1]).upper(),
+                          'charge' : float(content[2]) }
+                top['atoms'][str(content[0]).upper()] = param
+            elif len(top['bonds']) < top['nbonds']:
+                bonds = [(b.split()[0].upper(), b.split()[1].upper())
+                          for b in " ".join(content).split(";") if b.strip()]
+                top['bonds'].extend(bonds)
+            elif len(top['impropers']) < top['nimpropers']:
+                impropers = [(i.split()[0].upper(), i.split()[1].upper(),
+                              i.split()[2].upper(), i.split()[3].upper())
+                              for i in " ".join(content).split(";") if i.strip()]
+                top['impropers'].extend(impropers)
+
+    for resname, top in topology.items():
+        # atomtypes and partial charges
+        for name, param in top['atoms'].items():
+            cmd.alter(f"resn {resname} & name {name}", f"partial_charge={param['charge']}")
+            cmd.alter(f"resn {resname} & name {name}", f"text_type=\'{param['atomtype']}\'")
+        # unbond all and re-bond
+        cmd.unbond(f"resn {resname}", f"resn {resname}")
+        for bond in top['bonds']:
+            cmd.bond(f"resn {resname} & name {bond[0]}", f"resn {resname} & name {bond[1]}")
+
+
 def load_crd(filename, object=''):
     """
         Load a fDynamo coordinates file (.crd)
@@ -259,6 +335,8 @@ def load_ext(filename, object='', state=0, format='', finish=1,
 
             Formats
             -------
+            .ff
+                fDynamo's force field file
             .crd
                 fDynamo's coordinates file
             .dynn
@@ -270,8 +348,12 @@ def load_ext(filename, object='', state=0, format='', finish=1,
         if not format:
             format = os.path.basename(filename).rpartition('.')[-1]
 
+        # fDynamo's force field
+        if format.lower() == "ff":
+            load_ff(filename)
+
         # DYNAMON dynn options/selection
-        if format.lower() == "dynn":
+        elif format.lower() == "dynn":
             load_dynn(filename)
 
         # fDynamo's crd coordinates
