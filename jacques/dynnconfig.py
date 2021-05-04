@@ -187,11 +187,13 @@ class DynnConfig:
         '''
 
         for option, value in kwargs.items():
-            if option in ('f', 'file'):
+            if not value:
+                continue
+            elif option in ('f', 'file'):
                 self.read_file(value)
             elif option == 'dim':
                 self.dim = value
-            elif option in self.opt_keys and bool(value):
+            elif option in self.opt_keys:
                 self.opt[option] = value
 
     def write(self, file=None, constr=True):   #FIXME: Make writing more general

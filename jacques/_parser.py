@@ -29,7 +29,7 @@ def parser(mode=None):
             argparse's parser object
     '''
 
-    mode = mode.lower()
+    if mode: mode = mode.lower()
     mode_list = ('sp', 'mini', 'locate', 'md', 'interaction',
                  'kie', 'irc', 'pes', 'scan', 'pmf', 'corr')
 
