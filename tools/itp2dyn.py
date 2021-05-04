@@ -393,9 +393,14 @@ class DynamoTopology():
         for sect in ('bonds', 'angles', 'dihedrals'):
             if section and section != sect: continue
             keys = list(self.top[sect].keys())
-            for key in keys:
-                yek = key[::-1]
-                if yek in keys:
+            n = 0
+            while n < len(keys):
+                key = keys[n]
+                yek = tuple(reversed(key))
+                n += 1
+                if yek == key:  # skip palindromic
+                    continue
+                elif yek in keys:
                     if overwrite: self.top[sect][key] = self.top[sect][yek]
                     self.top[sect].pop(yek)
                     keys.remove(yek)
@@ -896,6 +901,7 @@ class GMXTopology():
                     top[param_type][attypes] = {'v':param.p['opls'], 'comment':""}
 
         self.opls.recount_top_n()
+        self.opls.remove_duplicates()
 
     def read_miss(self, missing:list) -> None:
         self.missing = { 'bonds' : set(),
