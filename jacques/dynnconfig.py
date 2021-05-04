@@ -181,6 +181,19 @@ class DynnConfig:
                 print("WARNING: Unrecognized option:", line[0])
             n += 1
 
+    def read_opt(self, **kwargs):
+        '''
+            Read options from a dictionary / labelled values
+        '''
+
+        for option, value in kwargs.items():
+            if option in ('f', 'file'):
+                self.read_file(value)
+            elif option == 'dim':
+                self.dim = value
+            elif option in self.opt_keys and bool(value):
+                self.opt[option] = value
+
     def write(self, file=None, constr=True):   #FIXME: Make writing more general
         '''
             Write formatted options

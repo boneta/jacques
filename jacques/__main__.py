@@ -28,15 +28,7 @@ def main():
 
     # configuration object
     config = DynnConfig()
-    if args.f is not None:
-        config.read_file(args.f)
-    for option in vars(args):
-        value = getattr(args, option)
-        if value == False: value = None
-        if option in DynnConfig.opt_keys and value is not None:
-            config.opt[option] = value
-        elif option == 'dim':
-            config.dim = option
+    config.read_opt(**vars(args))
     config.def_opt(config.mode, opt_def)
 
     # configure and launch calculation

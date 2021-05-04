@@ -87,10 +87,7 @@ def param(name, queue=None, cores=1, memory='4000MB', memory_plus='1000MB',
                        nodes=nodes, cores=cores, memory=memory_final)
 
     # move job file
-    if jobf is not None:
-        mvjob = "\nmv $0 {}\n".format(jobf)
-    else:
-        mvjob = "\n"
+    mvjob = "\nmv $0 {}\n".format(jobf) if jobf is not None else "\n"
 
     queue_param = "#!/bin/bash\n" + dedent(sge) + dedent(slurm) + mvjob
 
@@ -145,14 +142,7 @@ def _conv_mem(memory, out_units='MB'):
     '''
 
     # memory units with MB as base
-    units = {
-        'KB' : 1.0E-3,
-        'MB' : 1.0,
-        'GB' : 1.0E3,
-        'TB' : 1.0E6,
-        'MW' : 8.0,
-        'GW' : 8.0E3
-        }
+    units = {'KB':1.0E-3, 'MB':1.0, 'GB':1.0E3, 'TB':1.0E6, 'MW':8.0, 'GW':8.0E3}
 
     # assign amount of memory and input units
     try:
@@ -160,10 +150,7 @@ def _conv_mem(memory, out_units='MB'):
         in_units = re.findall(r'[A-Za-z]+', memory)[0].upper()
     except:
         mem = float(memory)
-        if mem < 100:
-            in_units = 'GB'
-        else:
-            in_units = 'MB'
+        in_units = 'GB' if mem < 100 else 'MB'  # guess units (risky)
 
     out_units = out_units.upper()
 
