@@ -471,16 +471,16 @@ class DynnConfig:
                           cd {pwd}\n
                           for j in $(seq 0 {n}); do
                             if [ $j == 0 ]; then
-                              {exe} {dynnfile} --OUT {out}.{i} --NAME {name}.{i} --N {i} $j --COORD {coord0} > {name}.{i}.$j.log
+                              {exe} {dynnfile} --OUT {out}.{i}.out --NAME {name}.{i}.$j --N {i} $j --COORD {coord0} > {name}.{i}.$j.log
                               {{ qsub   {jobn} ; }} 2>/dev/null
                               {{ sbatch {jobn} ; }} 2>/dev/null
                             else
-                              {exe} {dynnfile} --OUT {out}.{i} --NAME {name}.{i} --N {i} $j --COORD {name}.{i}.$jl.crd > {name}.{i}.$j.log
+                              {exe} {dynnfile} --OUT {out}.{i}.out --NAME {name}.{i}.$j --N {i} $j --COORD {name}.{i}.$jl.crd > {name}.{i}.$j.log
                             fi
                             jl=$j
                           done
                           """.format(pwd=os.getcwd(), n=constr[1]['n'], exe=exe,
-                                     dynnfile=dynnfile, name=name, out=out, i=i, jobn=jobn, coord0=coord0)
+                                     dynnfile=dynnfile, name=name, out=out.split(".out")[0], i=i, jobn=jobn, coord0=coord0)
                 with open(jobfile, 'w') as jobf:
                     jobf.write(queue_param)
                     jobf.write(dedent(routine))
