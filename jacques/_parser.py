@@ -82,6 +82,10 @@ def parser(mode=None):
         p.add_argument('--bin', type=str)
         h+=" --sele  <.dynn>                   selection file for QM and NOFIX\n\n"
         p.add_argument('--sele', type=str)
+        
+        if mode in ('scan', 'pes', 'irc', 'corr'):
+            h+=" --out  <.out>                     file with distances and energies\n\n"
+            p.add_argument('--out', type=str)
 
         #  COMPUTING  -------------------------------------------------
         h+=" -j | --jobonly                    write jobfile but do not submit\n"

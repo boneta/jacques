@@ -62,7 +62,7 @@ class DynnConfig:
     opt_keys = [
         'mode',
 
-        'name', 'sys', 'bin', 'sele', 'coord', 'ff', 'seq',
+        'name', 'out', 'sys', 'bin', 'sele', 'coord', 'ff', 'seq',
         'cores', 'memory',
         'charge', 'multi', 'force_uhf',
         'semiemp', 'gauss', 'func', 'basis',
@@ -132,6 +132,14 @@ class DynnConfig:
             return self.opt['name']
         else:
             return self.mode.upper()
+
+    @property
+    def out(self):
+        '''Output file with distances and energies'''
+        if self.opt['out'] is not None:
+            return self.opt['out']
+        else:
+            return self.name + ".out"
 
     @property
     def nconstr(self):
@@ -370,6 +378,7 @@ class DynnConfig:
 
         mode   = self.mode
         name   = self.name
+        out    = self.out
         opt    = self.opt
         constr = self.constr
         exe    = opt['exe']
@@ -434,13 +443,13 @@ class DynnConfig:
                       cd {pwd}\n
                       for i in $(seq 0 {n}); do
                         if [ $i == 0 ]; then
-                          {exe} {dynnfile} --NAME scan.$i --N $i > scan.$i.log
+                          {exe} {dynnfile} --OUT {out} --NAME {name}.$i --N $i > {name}.$i.log
                         else
-                          {exe} {dynnfile} --NAME scan.$i --N $i --COORD scan.$il.crd > scan.$i.log
+                          {exe} {dynnfile} --OUT {out} --NAME {name}.$i --N $i --COORD {name}.$il.crd > {name}.$i.log
                         fi
                         il=$i
                       done
-                      """.format(pwd=os.getcwd(), n=constr[0]['n'], exe=exe, dynnfile=dynnfile)
+                      """.format(pwd=os.getcwd(), n=constr[0]['n'], exe=exe, dynnfile=dynnfile, name=name, out=out)
             with open(jobfile, 'w') as jobf:
                 jobf.write(queue_param)
                 jobf.write(dedent(routine))
@@ -452,30 +461,30 @@ class DynnConfig:
             self.write(dynnfile, True)
             # first constraint preference
             for i in range(0, int(constr[0]['n'])+1):
-                name_pes = "pes.{}".format(i)
+                name_pes = "{}.{}".format(name, i)
                 jobfile  = name_pes + '.job'
-                jobn     = "pes.{}.job".format(i+1)
+                jobn     = "{}.{}.job".format(name, i+1)
                 queue_param = queues.param(name_pes, queue=opt['queue'], cores=opt['cores'], memory=opt['memory'])
                 if i==0: coord0 = opt['coord']
-                else: coord0 = "pes.{}.$j.crd".format(i-1)
+                else: coord0 = "{}.{}.$j.crd".format(name, i-1)
                 routine = """
                           cd {pwd}\n
                           for j in $(seq 0 {n}); do
                             if [ $j == 0 ]; then
-                              {exe} {dynnfile} --NAME pes.{i} --N {i} $j --COORD {coord0} > pes.{i}.$j.log
+                              {exe} {dynnfile} --OUT {out}.{i} --NAME {name}.{i} --N {i} $j --COORD {coord0} > {name}.{i}.$j.log
                               {{ qsub   {jobn} ; }} 2>/dev/null
                               {{ sbatch {jobn} ; }} 2>/dev/null
                             else
-                              {exe} {dynnfile} --NAME pes.{i} --N {i} $j --COORD pes.{i}.$jl.crd > pes.{i}.$j.log
+                              {exe} {dynnfile} --OUT {out}.{i} --NAME {name}.{i} --N {i} $j --COORD {name}.{i}.$jl.crd > {name}.{i}.$j.log
                             fi
                             jl=$j
                           done
                           """.format(pwd=os.getcwd(), n=constr[1]['n'], exe=exe,
-                                     dynnfile=dynnfile, i=i, jobn=jobn, coord0=coord0)
+                                     dynnfile=dynnfile, name=name, out=out, i=i, jobn=jobn, coord0=coord0)
                 with open(jobfile, 'w') as jobf:
                     jobf.write(queue_param)
                     jobf.write(dedent(routine))
-            submit_job(opt,"pes.0.job")
+            submit_job(opt, name+".0.job")
 
         # FREE ENERGY -----------------------------------------------------
         elif mode in ('pmf'):
