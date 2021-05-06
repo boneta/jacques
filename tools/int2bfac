@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 # Description: Transfer interaction data to b-factor in a pdb
-# Last update: 19-01-2021
+# Last update: 06-05-2021
 
 import os
-import numpy as np
 import argparse
 
 import pdb4all        # http://github.com/boneta/pdb4all
