@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 # Description: Connect free energy barriers and kinetic using TST
-# Last update: 15-03-2021
+# Last update: 06-05-2021
 
-import sys
+import re
 import math as m
 import argparse
 
@@ -34,54 +34,66 @@ _J2Kcal  = 0.0002388459           # J -> Kcal
 
 def temp2K(temp):
     """Convert temperature to Kelvin based on trailing unit"""
-    t = temp.replace(" ","")
-    if t[-1].upper() == 'C':
-        t = float(t[:-1]) + 273.15
-    elif t[-1].upper() == ('K'):
-        t = float(t[:-1])
-    elif t[-1].upper() == 'F':
-        t = ( float(t[:-1]) + 459.67 ) * 5/9
+    # split leading number and trailing units
+    temp_split = list(filter(None, re.split(r'(^\d+\.?\d*)', temp, maxsplit=1)))
+    # check trailing unit and format
+    unit = 'K' if len(temp_split) == 1 else temp_split[1][0].upper()
+    num = temp_split[0]
+    # convert according to unit
+    if unit == 'K':
+        t = float(num)
+    elif unit == 'C':
+        t = float(num) + 273.15
+    elif unit == 'F':
+        t = ( float(num) + 459.67 ) * 5/9
     else:
-        t = float(t)
+        raise ValueError("Unkown unit -> {}".format(unit))
     return t
 
-
-## PARSER #############################################################
-parser = argparse.ArgumentParser(description='Simple connection between free energy barriers and kinetic using TST\n')
-parser.add_argument('-k', metavar='k', type=float,
-                    help='rate constant input to calculate free energy barrier [s-1]')
-parser.add_argument('-G', metavar='dG', type=float,
-                    help='free energy input to calculate rate constant [kcal/mol]')
-parser.add_argument('-t', metavar='T', type=str, default='298.15K', nargs='+',
-                    help="temperature [K], can be followed by units [C/K/F] (def: 298.15K)")
-args = parser.parse_args()
-
-rate = args.k
-G    = args.G
-temp = temp2K("".join(args.t))
+def tst(k=None, G=None, temp=298.15):
+    """Take a free energy barrier or kinetic rate and return the other"""
+    beta = 1/( _kb*_J2Kcal * temp )
+    if not bool(k) ^ bool(G):
+        raise ValueError("One and only one parameter required -> k xor G")
+    elif k is not None:
+        return m.log( k * beta * _h*_J2Kcal ) / -beta * _NA
+    elif G is not None:
+        return m.exp( G * -beta / _NA ) / ( beta * _h*_J2Kcal )
 
 
 ## TST Calculator #####################################################
 
-# check input parameters
-if not (rate or G):
-    sys.exit("ERROR: No input parameter provided (k or G)")
-elif rate and G:
-    sys.exit("ERROR: Conflict between input parameters (k and G)")
+if __name__ == '__main__':
 
-print("-- Simple TST Calculator --\n\n"+
-      "Temperature [K]: {:.2f}".format(temp))
+    parser = argparse.ArgumentParser(description='Simple connection between free energy barriers and kinetic using TST\n')
+    input_group = parser.add_mutually_exclusive_group(required=True)  # k .XOR. G
+    input_group.add_argument('-k', metavar='k', type=float,
+                             help='rate constant input to calculate free energy barrier [s-1]')
+    input_group.add_argument('-G', metavar='dG', type=float,
+                             help='free energy input to calculate rate constant [kcal/mol]')
+    parser.add_argument('-t', metavar='T', type=str, default='298.15K',
+                        help="temperature [K], can be followed by units [C/K/F] (def: 298.15K)")
+    parser.add_argument('-s', action='store_true', help=argparse.SUPPRESS)
+    args = parser.parse_args()
 
-# calculate free energy (dG) from rate constant
-if rate is not None:
-    print("Rate Constant [s-1]: {}\n".format(rate))
-    beta = 1/( _kb*_J2Kcal * temp )
-    G = m.log( rate * beta * _h*_J2Kcal ) / -beta * _NA
-    print("Free Energy Barrier [Kcal/mol]: {}\n".format(G))
+    k      = args.k
+    G      = args.G
+    temp   = temp2K(args.t)
+    silent = args.s
 
-# calculate rate constant from free energy (dG)
-elif G is not None:
-    print("Free Energy Barrier [Kcal/mol]: {}\n".format(G))
-    beta = 1/( _kb*_J2Kcal * temp )
-    rate = m.exp( G * -beta / _NA ) / ( beta * _h*_J2Kcal )
-    print("Rate Constant [s-1]: {}\n".format(rate))
+    if not silent:
+        print("-- Simple TST Calculator --\n\n"+
+              "Temperature [K]: {:.2f}".format(temp))
+        # calculate free energy (dG) from rate constant
+        if k is not None:
+            print("Rate Constant [s-1]: {}\n\n".format(k)+
+                  "Free Energy Barrier [Kcal/mol]: {}\n".format(tst(k=k, temp=temp)))
+        # calculate rate constant from free energy (dG)
+        elif G is not None:
+            print("Free Energy Barrier [Kcal/mol]: {}\n\n".format(G)+
+                  "Rate Constant [s-1]: {}\n".format(tst(G=G, temp=temp)))
+    else: 
+        if k is not None:
+            print(tst(k=k, temp=temp))
+        elif G is not None:
+            print(tst(G=G, temp=temp))
