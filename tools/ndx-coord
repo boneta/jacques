@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+
+# Description: Get the corresponding index-coordinates of a scan/pes
+# Last update: 07-05-2021
+
+import os
+import sys
+import re
+import argparse
+
+import numpy as np
+
+from jacques.dynnconfig import DynnConfig
+
+# Parser
+parser = argparse.ArgumentParser(prog='ndx-coord',
+                                 description='Get the corresponding index-coordinates of a scan/pes',
+                                 formatter_class=argparse.RawTextHelpFormatter)
+parser.add_argument('-d', metavar='dim', type=int,
+                    help='treat values as of a specific dimension (def: natural dimensions)')
+input_group = parser.add_mutually_exclusive_group(required=True)  # coordinates XOR indexes
+input_group.add_argument('-c', metavar='#', type=float, nargs='+', default = [],
+                         help='coordinates (x y z ...)')
+input_group.add_argument('-n', metavar='#', type=int, nargs='+', default=[],
+                         help='indexes (i j k ...)')
+read_group = parser.add_mutually_exclusive_group(required=True)  # .jcq/.dynn XOR .out
+read_group.add_argument('-f', metavar='.jcq/.dynn', type=str,
+                        help='file config in DYNAMON format (.jcq/.dynn)')
+read_group.add_argument('-o', metavar='.out', type=str,
+                        help='output file from scan/pes to read indexes / exact coordinates \n'+
+                             'coordinates are averaged between matches if any degree of freedom is left')
+args = parser.parse_args()
+
+# process input and check consistency
+dim         = args.d
+coord       = args.c
+ndx         = args.n
+ninput      = len(coord) or len(ndx)
+config_file = args.f
+out_file    = args.o
+
+n = dim or ninput
+found = []
+
+# resolve analytically from a configuration file parameters
+if config_file is not None:
+    config = DynnConfig(config_file)
+    # check dimensions coherence
+    if n > config.nconstr:
+        sys.exit(f"ERROR: incompatible dimensions -> specified ({n}) > config file ({config.nconstr})")
+    config.resolve_constr(n)
+    
+    # solve every input value independently
+    for i in range(ninput):
+        d = dim - 1 if dim else i
+        if ndx:
+            value = np.around(config.constr[d]['dinit'] + config.constr[d]['step']*ndx[i], decimals=4)
+        elif coord:
+            value = int((coord[i] - config.constr[d]['dinit']) / config.constr[d]['step'])
+        found.append(value)
+
+# find closest point in output file (average if multiple match)
+elif out_file is not None:
+    # read dimension from first line of file else try with n
+    with open(out_file, 'rt') as f:
+        out_firstline = f.readline()
+        out_dim = int(out_firstline.split()[1]) if re.match(r"^##\s+[0-9]+\s+#", out_firstline) else n
+    # check dimensions coherence
+    if n > out_dim:
+        sys.exit(f"ERROR: incompatible dimensions -> specified ({n}) > outfile ({out_dim})")
+    # read file (exact coordinates and indexes)
+    out_data = np.loadtxt(out_file, dtype=float, usecols=[*range(0,out_dim),*range(out_dim+2,out_dim*2+2)])
+    out_coord = out_data[:,:out_dim]
+    out_ndx   = out_data[:,out_dim:].astype(int)
+    
+    # solve all input values combined as single entry
+    if not dim:
+        out_coord = out_coord[:,:ninput]
+        out_ndx = out_ndx[:,:ninput]
+        if ndx:
+            found_ndx_coord = np.argwhere(np.all(out_ndx == ndx, axis=1)).flatten()
+            if len(found_ndx_coord) < 1:
+                sys.exit("ERROR: No coordinates found for these index")
+            else:
+                found = np.around(np.average(out_coord[found_ndx_coord], 0), decimals=4).tolist()
+        elif coord:
+            # check if coordinates inside range
+            if np.any(coord > np.amax(out_coord, 0)) or np.any(coord < np.amin(out_coord, 0)):
+                sys.stderr.write("WARNING: coordinates out of range\n")
+            # absolute distance to input coordinates for all points
+            diff = out_coord - coord
+            dist = np.sqrt((diff*diff).sum(axis=1))
+            # get index with minimum distance
+            found = out_ndx[np.argmin(dist),:].tolist()
+    
+    # solve every input value independently
+    else:
+        out_coord = out_coord[:,dim-1]
+        out_ndx = out_ndx[:,dim-1]
+        for i in range(ninput):
+            if ndx:
+                found_ndx_coord = np.argwhere(out_ndx == ndx[i]).flatten()
+                if len(found_ndx_coord) < 1:
+                    sys.exit(f"ERROR: No coordinates found for this index ({ndx[i]})")
+                else:
+                    found.append(np.around(np.average(out_coord[found_ndx_coord]), decimals=4))
+            elif coord:
+                # check if coordinates inside range
+                if coord[i] > np.amax(out_coord) or coord[i] < np.amin(out_coord):
+                    sys.stderr.write(f"WARNING: coordinates out of range ({coord[i]})\n")
+                # absolute distance to input coordinates for all points
+                dist = abs(out_coord - coord[i])
+                # get index with minimum distance
+                found.append(out_ndx[np.argmin(dist)])
+
+# print results
+found = list(map(str, found))
+sys.stderr.write("{}\n".format("  ".join(found)))
+

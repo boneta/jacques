@@ -318,7 +318,8 @@ class DynnConfig:
                 raise ValueError(f"Not enough parameters specified to resolve constraint {nth+1}")
             # dinit & dend -> n [& step]
             if c['dinit'] and c['dend']:
-                diff = float(c['dend']) - float(c['dinit'])
+                c['dinit'], c['dend'] = float(c['dinit']), float(c['dend'])
+                diff = c['dend'] - c['dinit']
                 if not c['n']:
                     c['n'] = m.ceil(diff/c['step'])
                     if c['n'] < 0: c['n'], c['step'] = -c['n'], -c['step']
@@ -326,10 +327,12 @@ class DynnConfig:
                     c['step'] = round(diff/c['n'], 3)
             # dinit & n [& step] -> dend
             elif c['dinit']:
-                c['dend'] = float(c['dinit']) + float(c['step'])*int(c['n'])
+                c['dinit'] = float(c['dinit'])
+                c['dend'] = c['dinit'] + float(c['step'])*int(c['n'])
             # dend & n [& step] -> dinit
             elif c['dend']:
-                c['dinit'] = float(c['dend']) - float(c['step'])*int(c['n'])
+                c['dend'] = float(c['dend'])
+                c['dinit'] = c['dend'] - float(c['step'])*int(c['n'])
 
     @staticmethod
     def _swap_constrtype(c):
