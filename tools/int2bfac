@@ -49,7 +49,7 @@ imp_thr   = args.imp
 if pdb_outfile is None: pdb_outfile = os.path.splitext(pdb_infile)[0] + "_int-bfac.pdb"
 
 # read PDB
-inpdb = pdb4all.pdb()
+inpdb = pdb4all.PDB()
 inpdb.read(pdb_infile)
 
 # read interactions
