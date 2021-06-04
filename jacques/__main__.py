@@ -36,8 +36,11 @@ def main():
     config.read_opt(**vars(args))
     config.def_opt(config.mode, opt_def)
 
-    # configure and launch calculation
-    config.launch()
+    # run post-process or launch calculation
+    if config.opt['post']:
+      config.post()
+    else:
+      config.launch()
 
 if __name__ == '__main__':
     main()

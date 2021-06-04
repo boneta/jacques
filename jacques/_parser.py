@@ -188,6 +188,11 @@ def parser(mode=None):
         h+=" -d | --dim  <int>                 dimension, otherwise guessed from config file\n\n"
         p.add_argument('-d', '--dim', type=int, default=0)
 
+    # post-process
+    if mode in ('scan', 'pes', 'pmf', 'corr'):
+        h+=" -p | --post                       post-process routine after calculation\n\n"
+        p.add_argument('-p', '--post', action='store_true')
+
     #  VERSION AND HELP  ----------------------------------------------
     p.add_argument('-v',
                    '--version',

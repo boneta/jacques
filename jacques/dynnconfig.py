@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 """
 =======================================================================
   DYNAMON configuration parameters for a calculation
@@ -74,7 +77,7 @@ class DynnConfig:
         'dcd_stride', 'int_dcd', 'int_wbox', 'int_ions',
         'kie_atomn', 'kie_skip', 'kie_mass', 'kie_hess',
 
-        'exe', 'queue', 'jobonly'
+        'exe', 'queue', 'jobonly', 'post'
         ]
 
     constr_keys = [
@@ -498,3 +501,29 @@ class DynnConfig:
         # UNKNOWN ---------------------------------------------------------
         else:
             sys.exit(f"ERROR: Unkown mode '{mode}'")
+
+    def post(self):
+        '''
+            Post-process routine after a calculation
+        '''
+
+        # check fundamental parameters
+        if self.mode is None:
+            sys.exit("ERROR: Missing MODE")
+
+        mode   = self.mode
+        name   = self.name
+        opt    = self.opt
+        constr = self.constr
+
+        sys.stdout.write(f"## POST-PROCESS: {mode}\n# NAME: {name}\n\n")
+
+        if mode in ('scan', 'pes'):
+            sys.exit("Post-process for this mode not implemented yet")
+        elif mode in ('pmf', 'corr'):
+            sys.exit("Post-process for this mode not implemented yet")
+        else:
+            sys.exit(f"ERROR: No post-process routine for this mode '{mode}'")
+
+
+
