@@ -518,6 +518,7 @@ class DynnConfig:
             crd_files = self._natural_sort(glob.glob(os.path.join(crd_dir, "*.crd")))
             # loop through all requested dimensions
             job_files = []
+            not_found = []
             for c in itertools.product(*[range(constr[i]['n']) for i in range(self.dim)]):
                 numd = ".".join(map(str, c))
                 nums = " ".join(map(str, c))
@@ -527,7 +528,7 @@ class DynnConfig:
                 try:
                     crd = [i for i in crd_files if "."+numd+".crd" in i][0]
                 except IndexError:
-                    sys.stdout.write(f"WARNING: Coordinates not found -> {nums}\n")
+                    not_found.append(nums)
                     continue
                 routine = """
                           cd {pwd}\n
@@ -538,10 +539,15 @@ class DynnConfig:
                     jobf.write(queue_param)
                     jobf.write(dedent(routine))
                 job_files.append(jobfile)
+            # not found warning
+            if not_found:
+                with open("crd_not_found.txt", 'w') as f:
+                    f.write("\n".join(not_found))
+                sys.stdout.write("WARNING: Some crd could not be found. Registered on 'crd_not_found.txt'.\n")
             # main job launcher driver
             with open(name+".job", 'w') as jobf:
                 jobf.write(queues.param(name, queue=opt['queue'], cores=1))
-                jobf.write("jobs=(\\\n"+"\n".join(job_files)+"\n)\n")
+                jobf.write("jobs=(\\\n"+"\n".join(job_files)+"\n)\n\n")
                 routine = r"""
                           for job in ${jobs[@]}; do
                               { qsub   $job ; } 2>/dev/null
@@ -566,7 +572,7 @@ class DynnConfig:
                 remove files after processing
         '''
 
-        filetypes = ('log', 'crd', 'out', 'job')
+        filetypes = ('log', 'crd', 'out', 'dat', 'job')
 
         mode   = self.mode
         name   = self.name
@@ -576,20 +582,15 @@ class DynnConfig:
             sys.exit("ERROR: Missing MODE")
         elif mode not in ('scan', 'pes', 'pmf', 'corr'):
             sys.exit(f"ERROR: No post-process routine for this mode '{mode}'")
-        elif mode in ('pmf', 'corr'):
-            sys.exit("Post-process for this mode not implemented yet")
 
         # list of files to process in natural order
-        final_files = dict()
         dir_files = dict()
         for filetype in filetypes:
-            final_file = f"{name}.{filetype}"
-            dir_file = self._natural_sort(glob.glob(f"*.{filetype}"))
-            # remove final file from file lists
-            if final_file in dir_file: dir_file.remove(final_file)
-            # assign to dict
-            final_files[filetype] = final_file
-            dir_files[filetype] = dir_file
+            if filetype in ('log', 'crd', 'out', 'job'):
+                file_pattern = f"*.{filetype}"
+            elif filetype == 'dat':
+                file_pattern = f"{filetype}_*"
+            dir_files[filetype] = self._natural_sort(glob.glob(file_pattern))
 
         sys.stdout.write(f"## POST-PROCESS: {mode}\n# NAME: {name}\n\n")
 
@@ -597,12 +598,16 @@ class DynnConfig:
             # check no files matching
             if dir_files[filetype]:
                 n_tot = len(dir_files[filetype])
-                final_file = final_files[filetype]
                 # pre-loop actions
                 if filetype in ('log', 'out'):
+                    final_file = f"{name}.{filetype}"
+                    # remove final file from file lists
+                    if final_file in dir_files[filetype]: dir_files[filetype].remove(final_file)
                     f_final = open(final_file, 'a+')
                 elif filetype == 'crd' and not os.path.isdir("crd"):
                     os.mkdir("crd")
+                elif filetype == 'dat' and not os.path.isdir("dat"):
+                    os.mkdir("dat")
                 # loop through every matched file
                 for n, f in enumerate(dir_files[filetype]):
                     # LOG / OUT -----
@@ -614,6 +619,9 @@ class DynnConfig:
                     # CRD -----
                     elif filetype == 'crd':
                         shutil.move(f, os.path.join("crd", f))
+                    # DAT -----
+                    elif filetype == 'dat':
+                        shutil.move(f, os.path.join("dat", f))
                     # JOB -----
                     elif filetype == 'job':
                         if rm: os.remove(f)
