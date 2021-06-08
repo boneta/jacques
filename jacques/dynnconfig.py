@@ -322,14 +322,19 @@ class DynnConfig:
         elif n_constr > self.nconstr:
             raise ValueError(f"More contraints requested to resolve ({n_constr}) than defined ({self.nconstr})")
 
+        types_dict = {'dinit':float, 'dend':float, 'step':float, 'n':int}
+        
         for nth, c in enumerate(self.constr[0:n_constr]):
+            # type conversion
+            for i,j in types_dict.items():
+                if c[i] is not None: c[i] = j(c[i])
+            # default step
             if not c['step']: c['step'] = step
             # check enough defined parameters to solve
             if (c['dinit'], c['dend'], c['n']).count(None) > 1:
                 raise ValueError(f"Not enough parameters specified to resolve constraint {nth+1}")
             # dinit & dend -> n [& step]
             if c['dinit'] and c['dend']:
-                c['dinit'], c['dend'] = float(c['dinit']), float(c['dend'])
                 diff = c['dend'] - c['dinit']
                 if not c['n']:
                     c['n'] = m.ceil(diff/c['step'])
@@ -338,12 +343,10 @@ class DynnConfig:
                     c['step'] = round(diff/c['n'], 3)
             # dinit & n [& step] -> dend
             elif c['dinit']:
-                c['dinit'] = float(c['dinit'])
-                c['dend'] = c['dinit'] + float(c['step'])*int(c['n'])
+                c['dend'] = c['dinit'] + c['step']*c['n']
             # dend & n [& step] -> dinit
             elif c['dend']:
-                c['dend'] = float(c['dend'])
-                c['dinit'] = c['dend'] - float(c['step'])*int(c['n'])
+                c['dinit'] = c['dend'] - c['step']*c['n']
 
     @staticmethod
     def _swap_constrtype(c):
