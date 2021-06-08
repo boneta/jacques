@@ -566,7 +566,7 @@ class DynnConfig:
             # main job launcher driver
             with open(name+".job", 'w') as jobf:
                 jobf.write(queues.param(name, queue=opt['queue'], cores=1))
-                jobf.write(f"\ncd {os.getcwd}\n\n")
+                jobf.write(f"\ncd {os.getcwd()}\n\n")
                 jobf.write("jobs=(\\\n"+"\n".join(job_files)+"\n)\n")
                 routine = r"""
                           for job in ${jobs[@]}; do
