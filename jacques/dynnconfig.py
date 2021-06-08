@@ -18,6 +18,7 @@ import sys
 import re
 import glob
 import shutil
+import itertools
 import math as m
 from textwrap import dedent
 
@@ -294,6 +295,9 @@ class DynnConfig:
                     for option in opt_settings[def_dic]['constr'].keys():
                         if option in self.constr_keys[1:] and c[option] is None:
                             c[option] = opt_settings[def_dic]['constr'][option]
+        # dimensions
+        if self.dim == 0:
+            self.dim = self.nconstr
 
     def resolve_constr(self, n_constr=None, step=0.05):       #TODO: take dcrd as dinit
         '''
@@ -367,6 +371,12 @@ class DynnConfig:
         elif isinstance(c,int):
             return int2str[c]
 
+    @staticmethod
+    def _natural_sort(l):
+        '''Sort a list by natural order'''
+        alphanum_key = lambda key: [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', key)]
+        return sorted(l, key=alphanum_key)
+
     def launch(self):
         '''
             Launch the calculation to the queue system
@@ -413,7 +423,7 @@ class DynnConfig:
             submit_job(opt,jobfile)
 
         # IRC -------------------------------------------------------------
-        elif mode in ('irc'):
+        elif mode == 'irc':
             # check direction
             if opt['irc_dir'] in (None, 0): directions = [-1,1]
             else : directions = [opt['irc_dir']]
@@ -443,7 +453,7 @@ class DynnConfig:
                 os.chdir("..")
 
         # POTENTIAL -------------------------------------------------------
-        elif mode in ('scan'):
+        elif mode == 'scan':
             self.resolve_constr()
             dynnfile = name + '.dynn'
             jobfile  = name + '.job'
@@ -465,7 +475,7 @@ class DynnConfig:
                 jobf.write(dedent(routine))
             submit_job(opt,jobfile)
 
-        elif mode in ('pes'):
+        elif mode == 'pes':
             self.resolve_constr()
             dynnfile = name + '.dynn'
             self.write(dynnfile, True)
@@ -496,12 +506,52 @@ class DynnConfig:
                     jobf.write(dedent(routine))
             submit_job(opt, name+".0.job")
 
-        # FREE ENERGY -----------------------------------------------------
-        elif mode in ('pmf'):
-            sys.exit("Mode not implemented yet")
-        # CORRECTION ------------------------------------------------------
-        elif mode in ('corr'):
-            sys.exit("Mode not implemented yet")
+        # FREE ENERGY / CORRECTION ------------------------------------
+        elif mode in ('pmf', 'corr'):
+            self.resolve_constr(self.dim)
+            dynnfile = name + '.dynn'
+            self.write(dynnfile, True)
+            # get list of crd files
+            crd_dir = opt['coord']
+            if not os.path.isdir(crd_dir):
+                sys.exit("ERROR: Path to look for crd not found")
+            crd_files = self._natural_sort(glob.glob(os.path.join(crd_dir, "*.crd")))
+            # loop through all requested dimensions
+            job_files = []
+            for c in itertools.product(*[range(constr[i]['n']) for i in range(self.dim)]):
+                numd = ".".join(map(str, c))
+                nums = " ".join(map(str, c))
+                jobfile = name + "." + numd + ".job"
+                queue_param = queues.param(name+"."+numd, queue=opt['queue'], cores=opt['cores'], memory=opt['memory'])
+                # find corresponding coordinates
+                try:
+                    crd = [i for i in crd_files if "."+numd+".crd" in i][0]
+                except IndexError:
+                    sys.stdout.write(f"WARNING: Coordinates not found -> {nums}\n")
+                    continue
+                routine = """
+                          cd {pwd}\n
+                          {exe} {dynnfile} --OUT {out}.{numd}.out --NAME {name}.{numd} --N {nums} --COORD {crd} > {name}.{numd}.log\n
+                          """.format(pwd=os.getcwd(), exe=exe, dynnfile=dynnfile, name=name,
+                                     out=out.split(".out")[0], numd=numd, nums=nums, crd=crd)
+                with open(jobfile, 'w') as jobf:
+                    jobf.write(queue_param)
+                    jobf.write(dedent(routine))
+                job_files.append(jobfile)
+            # main job launcher driver
+            with open(name+".job", 'w') as jobf:
+                jobf.write(queues.param(name, queue=opt['queue'], cores=1))
+                jobf.write("jobs=(\\\n"+"\n".join(job_files)+"\n)\n")
+                routine = r"""
+                          for job in ${jobs[@]}; do
+                              { qsub   $job ; } 2>/dev/null
+                              { sbatch $job ; } 2>/dev/null
+                              sleep 1
+                          done
+                          """
+                jobf.write(dedent(routine))
+            submit_job(opt, name+".job")
+
         # UNKNOWN ---------------------------------------------------------
         else:
             sys.exit(f"ERROR: Unkown mode '{mode}'")
@@ -529,18 +579,12 @@ class DynnConfig:
         elif mode in ('pmf', 'corr'):
             sys.exit("Post-process for this mode not implemented yet")
 
-        def _natural_sort(l):
-            """Sort a list by natural order"""
-            convert = lambda text: int(text) if text.isdigit() else text.lower()
-            alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
-            return sorted(l, key=alphanum_key)
-
         # list of files to process in natural order
         final_files = dict()
         dir_files = dict()
         for filetype in filetypes:
             final_file = f"{name}.{filetype}"
-            dir_file = _natural_sort(glob.glob(f"*.{filetype}"))
+            dir_file = self._natural_sort(glob.glob(f"*.{filetype}"))
             # remove final file from file lists
             if final_file in dir_file: dir_file.remove(final_file)
             # assign to dict
@@ -584,5 +628,5 @@ class DynnConfig:
                     f_final.close()
             else:
                 sys.stdout.write(f"# {filetype.upper()}s  ⨯\n")
-        
+
         sys.stdout.write("\n")
