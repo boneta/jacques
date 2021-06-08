@@ -46,6 +46,8 @@ class DynnConfig:
             calculation name
         nconstr : int
             number of defined constraints
+        npoints : int
+            total number of points covered by constraints
 
         Methods
         -------
@@ -64,7 +66,7 @@ class DynnConfig:
         launch()
             launch the calculation to the queue system
         post(rm)
-            Post-process routine after a calculation
+            post-process routine after a calculation
     '''
 
     opt_keys = [
@@ -154,6 +156,17 @@ class DynnConfig:
         '''Number of defined constraints'''
         return len(self.constr)
 
+    @property
+    def npoints(self):
+        '''Total number of points covered by constraints'''
+        if self.dim == 0:
+            return 0
+        else:
+            n = 1
+            for d in range(self.dim):
+                n *= self.constr[d]['n']+1
+            return n
+
     def read_file(self, file):                  #FIXME: Make reading more robust
         '''
             Read options file in DYNAMON format
@@ -237,7 +250,7 @@ class DynnConfig:
             sys.stdout.write("WARNING: 'MODE' parameter not specified\n")
 
         # general options
-        for option in self.opt_keys[1:-3]:
+        for option in self.opt_keys[1:-4]:
             if self.opt[option] is not None:
                 if type(self.opt[option])==str and ("/" in self.opt[option] or "," in self.opt[option]):
                     f.write("{:<20} \"{}\"\n".format(option.upper(),self.opt[option]))
@@ -323,7 +336,7 @@ class DynnConfig:
             raise ValueError(f"More contraints requested to resolve ({n_constr}) than defined ({self.nconstr})")
 
         types_dict = {'dinit':float, 'dend':float, 'step':float, 'n':int}
-        
+
         for nth, c in enumerate(self.constr[0:n_constr]):
             # type conversion
             for i,j in types_dict.items():
@@ -514,6 +527,9 @@ class DynnConfig:
             self.resolve_constr(self.dim)
             dynnfile = name + '.dynn'
             self.write(dynnfile, True)
+            # create jobs folder
+            shutil.rmtree("jobs", ignore_errors=True)
+            os.mkdir("jobs")
             # get list of crd files
             crd_dir = opt['coord']
             if not os.path.isdir(crd_dir):
@@ -522,7 +538,7 @@ class DynnConfig:
             # loop through all requested dimensions
             job_files = []
             not_found = []
-            for c in itertools.product(*[range(constr[i]['n']) for i in range(self.dim)]):
+            for c in itertools.product(*[range(constr[i]['n']+1) for i in range(self.dim)]):
                 numd = ".".join(map(str, c))
                 nums = " ".join(map(str, c))
                 jobfile = name + "." + numd + ".job"
@@ -538,7 +554,7 @@ class DynnConfig:
                           {exe} {dynnfile} --OUT {out}.{numd}.out --NAME {name}.{numd} --N {nums} --COORD {crd} > {name}.{numd}.log\n
                           """.format(pwd=os.getcwd(), exe=exe, dynnfile=dynnfile, name=name,
                                      out=out.split(".out")[0], numd=numd, nums=nums, crd=crd)
-                with open(jobfile, 'w') as jobf:
+                with open(os.path.join("jobs", jobfile), 'w') as jobf:
                     jobf.write(queue_param)
                     jobf.write(dedent(routine))
                 job_files.append(jobfile)
@@ -550,11 +566,12 @@ class DynnConfig:
             # main job launcher driver
             with open(name+".job", 'w') as jobf:
                 jobf.write(queues.param(name, queue=opt['queue'], cores=1))
-                jobf.write("jobs=(\\\n"+"\n".join(job_files)+"\n)\n\n")
+                jobf.write(f"\ncd {os.getcwd}\n\n")
+                jobf.write("jobs=(\\\n"+"\n".join(job_files)+"\n)\n")
                 routine = r"""
                           for job in ${jobs[@]}; do
-                              { qsub   $job ; } 2>/dev/null
-                              { sbatch $job ; } 2>/dev/null
+                              { qsub   jobs/$job ; } 2>/dev/null
+                              { sbatch jobs/$job ; } 2>/dev/null
                               sleep 1
                           done
                           """
@@ -575,7 +592,7 @@ class DynnConfig:
                 remove files after processing
         '''
 
-        filetypes = ('log', 'crd', 'out', 'dat', 'job')
+        filetypes = ('log', 'crd', 'out', 'dat')
 
         mode   = self.mode
         name   = self.name
@@ -625,9 +642,6 @@ class DynnConfig:
                     # DAT -----
                     elif filetype == 'dat':
                         shutil.move(f, os.path.join("dat", f))
-                    # JOB -----
-                    elif filetype == 'job':
-                        if rm: os.remove(f)
                     # progress bar
                     sys.stdout.write("\r# {}s  [{:21s}] - {:>6.2f}%".format(filetype.upper(),
                                                                             "■"*int(21.*(n+1)/n_tot),
@@ -639,5 +653,10 @@ class DynnConfig:
                     f_final.close()
             else:
                 sys.stdout.write(f"# {filetype.upper()}s  ⨯\n")
+
+        # JOB -----
+        if rm and os.path.isdir("jobs"):
+            shutil.rmtree("jobs")
+            sys.stdout.write("# JOBSs  ✔\n")
 
         sys.stdout.write("\n")
