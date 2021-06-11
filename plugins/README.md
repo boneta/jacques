@@ -10,7 +10,10 @@ It can be used as a generic script/plug-in, but for an easiest usage it's advise
 
 ### Usage
 
-  - Write QM atoms and NOFIX residues from selection: \
+  - Write a selection of atoms to a file: \
+        `write_sele filename [, selection_name [, selection [, resolution ]]]`
+
+  - Write directly QM atoms or NOFIX residues from selection: \
         `write_qm  filename [, selection ]` \
         `write_nofix  filename [, selection ]`
 
