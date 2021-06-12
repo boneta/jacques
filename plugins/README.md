@@ -2,7 +2,7 @@
 
 ## **[PyMOL](https://pymolwiki.org)**
 
-`dynamon_pymol.py` The PyMOL plug-in adds capabilities to this molecular viewer to manage files in fDynamo/DYNAMO format.
+`pyDYNAMON.py` The PyMOL plug-in adds capabilities to this molecular viewer to manage files in fDynamo/DYNAMO format.
 
 ### Installation
 
@@ -18,5 +18,6 @@ It can be used as a generic script/plug-in, but for an easiest usage it's advise
         `write_nofix  filename [, selection ]`
 
   - Load/read extended file formats:  `load  filename [...]`
+    - .ff    -  fDynamo's force field file
     - .crd   -  fDynamo's coordinates file
     - .dynn  -  DYNAMON options/selection file
