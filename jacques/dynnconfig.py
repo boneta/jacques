@@ -34,9 +34,13 @@ class DynnConfig:
 
         Attributes
         ----------
-        opt : list
+        opt : dict
         atoms : list of list
         constr : list of dict
+        selection : dict
+            'sele_name' : dict
+                'segi' : dict
+                    'resi' : list
 
         Properties
         ----------
@@ -124,6 +128,7 @@ class DynnConfig:
         self.atoms  = []
         self.constr = []
         self.dim    = 0
+        self.selection = dict()
         if file is not None:
             self.read_file(file)
 
@@ -180,25 +185,23 @@ class DynnConfig:
         # read all file
         with open(file, 'rt') as inputfile:
             opts = inputfile.readlines()
-            opts = list(map(str.strip, opts))  # remove trailing spaces
-
-        # remove comment lines or strange empty lines and space-split the first word
-        opts = [list(map(str.strip,line.split(' ',1))) for line in opts
-                if len(line) > 0 and not line.startswith("#") and not line.startswith("!")]
+            # remove comment or empty lines and space-split the first word
+            opts = [list(map(str.strip, line.strip().split(' ',1))) for line in opts
+                    if line.strip() and not line.startswith(("!","#"))]
 
         # loop line by line to assign options
         n = 0
         while n < len(opts):
-            line = list(map(str.strip,opts[n]))
+            line = list(map(str.strip, opts[n]))
             if line[0] in (self.opt_keys_up|self.opt_keys_low):
                 self.opt[line[0].lower()] = line[1].strip('"')
-            elif line[0] == 'ATOM' or line[0] == 'A':
+            elif line[0].upper() in ('ATOM', 'A'):
                 self.atoms.append(line[1])
-            elif line[0] == 'CONSTR' or line[0] == 'C':
+            elif line[0].upper() in ('CONSTR', 'C'):
                 self.constr.append(self.constr_empty.copy())
                 self.constr[-1]['type'] = self._swap_constrtype(line[1])      # type of constr
                 # read constraint options
-                while n < len(opts):
+                while n+1 < len(opts):
                     n += 1
                     line = opts[n]
                     if line[0] == 'CONSTR' or line[0] == 'C': break
@@ -206,6 +209,28 @@ class DynnConfig:
                         self.constr[-1][line[0].lower()] = line[1].strip('"')
                     else:
                         print("WARNING: Unrecognized option:", line[0])
+            elif line[0].upper() == 'SELECTION':
+                sele_name = line[1].split()[0].upper()
+                # read whole selection to dict of dict of list
+                sele = dict()
+                segi = ""
+                resi = ""
+                while n+1 < len(opts):
+                    n += 1
+                    line = opts[n]
+                    if line[0].upper() == 'SELECTION': break
+                    subsect = line[0].upper()
+                    select = line[1].upper()
+                    if subsect == "S":
+                        segi = select
+                        resi = ""
+                        sele[select] = dict()
+                    elif subsect == "R":
+                        resi = int(select)
+                        sele[segi][int(select)] = []
+                    elif subsect == "A":
+                        sele[segi][resi].append(select)
+                self.selection[sele_name] = sele
             else:
                 print("WARNING: Unrecognized option:", line[0])
             n += 1
@@ -238,43 +263,57 @@ class DynnConfig:
                 write constraints secctions
         '''
 
-        if file is None:
-            f = sys.stdout
-        else:
-            f = open(file, 'wt')
+        # accumulate to string and write at the end
+        s = ""
 
         # mode
-        try:
-            f.write("{:<20} {}\n\n".format("MODE",self.opt['mode'].upper()))
-        except AttributeError:
+        if self.mode is not None:
+            s += "{:<20} {}\n\n".format("MODE", self.mode.upper())
+        else:
             sys.stdout.write("WARNING: 'MODE' parameter not specified\n")
 
         # general options
         for option in self.opt_keys[1:-4]:
             if self.opt[option] is not None:
                 if type(self.opt[option])==str and ("/" in self.opt[option] or "," in self.opt[option]):
-                    f.write("{:<20} \"{}\"\n".format(option.upper(),self.opt[option]))
+                    s += "{:<20} \"{}\"\n".format(option.upper(),self.opt[option])
                 else:
-                    f.write("{:<20} {}\n".format(option.upper(),self.opt[option]))
+                    s += "{:<20} {}\n".format(option.upper(),self.opt[option])
         # atoms
-        f.write("\n")
+        s += "\n"
         for a in self.atoms:
-            f.write("{:<20} {}\n".format("ATOM", a))
+            s += "{:<20} {}\n".format("ATOM", a)
 
         # constraints
         if constr:
             for c in self.constr:
-                f.write("\n")
-                f.write("{:<20} {}\n".format("CONSTR", self._swap_constrtype(c['type'])))
+                s += "\n"
+                s += "{:<20} {}\n".format("CONSTR", self._swap_constrtype(c['type']))
                 for option in self.constr_keys[1:]:
                     if c[option] is not None:
                         if type(c[option])==str and "/" in c[option]:
-                            f.write("  {:<18} \"{}\"\n".format(option.upper(),c[option]))
+                            s += "  {:<18} \"{}\"\n".format(option.upper(),c[option])
                         else:
-                            f.write("  {:<18} {}\n".format(option.upper(),c[option]))
-                f.write("C\n")
+                            s += "  {:<18} {}\n".format(option.upper(),c[option])
+                s += "C\n"
 
-        if file is not None: f.close()
+        # selections
+        for sele_name, sele in self.selection.items():
+            s += f"\nSELECTION {sele_name}\n"
+            for segi, resis in sele.items():
+                s += " "*4+f"S {segi}\n"
+                for resi, atoms in resis.items():
+                    s += " "*8+f"R {resi}\n"
+                    for name in atoms:
+                        s += " "*12+f"A {name}\n"
+            s += "SELECTION\n"
+
+        # final writing
+        if file is None:
+            sys.stdout.write(s)
+        else:
+            with open(file, 'w') as f:
+                f.write(s)
 
     def def_opt(self, mode, opt_settings):
         '''
