@@ -27,7 +27,7 @@
 
 """
 
-__version__ = '0.5.0'
+__version__ = '0.5.1'
 
 # PDB Strict formatting
 # ATOM/HETATM  serial  name   altLoc  resName  chainID  resSeq  iCode  x       y     z      occupancy  tempFactor  segment  element  charge
@@ -338,6 +338,9 @@ def load_crd(filename, object=''):
     # read file as list of strings
     with open(filename, "rt") as f:
         crd_file = f.readlines()
+        # remove comment lines, trailing comments and space split
+        crd_file = [line.split("!")[0].split() for line in crd_file
+                    if line.strip() and not line.startswith("!")]
 
     # convert atoms to pdb format
     atomic_number_inv = { n:elem for elem, n in atomic_number.items() }
@@ -361,9 +364,6 @@ def load_crd(filename, object=''):
           'charge'     : "" }
 
     for line in crd_file:
-        if line.startswith("!"): continue
-        line = line.split("!")[0].split()   # to list and remove trailing comments
-
         if line[0].lower() == "subsystem":
             a['segment'] = str(line[2])
         elif line[0].lower() == "residue":
