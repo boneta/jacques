@@ -6,6 +6,7 @@
   pdb2crd               Convert structures from pdb to dynamo's crd
   frdump                Dump frames from a dcd trajectory
   grocat                Concatenate GROMACS's gro
+  crester.py            Prepare/process structures to/from CREST
 ```
 
 ### Corrections

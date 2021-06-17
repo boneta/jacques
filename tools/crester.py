@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Description: Prepare/process structures to/from CREST
-# Last update: 16-06-2021
+# Last update: 17-06-2021
 
 # CREST: Conformer-Rotamer Ensemble Sampling Tool based on the xtb Semiempirical Extended Tight-Binding Program Package
 # https://github.com/grimme-lab/crest / https://xtb-docs.readthedocs.io/en/latest/crest.html
@@ -28,8 +28,9 @@
   movable selection. The selection can be custom named and proper indicated with
   '-movable' and '-constr'. The constraint force is tunned with '-force'.
 
-  If a bond is broken because of one side is left out of the calculation, the
-  missing atom will be replaced with an "H" atom at 1Å that will be kept constrained.
+  If a bond is broken because of one side is left out of any selection and it was
+  part of a standard residue, the missing atom will be replaced with an "H" atom
+  at 1Å that will be kept constrained.
 
   When a result structure from CREST is provided with '-x', it is inserted in its
   original position in the reference structure. The constrained atoms are used to
@@ -45,7 +46,7 @@ from copy import deepcopy
 from textwrap import dedent
 
 import numpy as np
-from pdb4all import PDB, Ptable
+from pdb4all import PDB, Ptable, aa
 from jacques.dynnconfig import DynnConfig
 from parmed import Atom
 from parmed.structure import Structure
@@ -88,6 +89,20 @@ def pdb4all2parmed(structure:'PDB') -> 'Structure':
     struc_pmd.coordinates = structure.xyz
     struc_pmd.assign_bonds()
     return struc_pmd
+
+def int_list_condensate(num_list:list, connector='-') -> list:
+    """[1, 2, 2, 5, 7, 8, 9] -> ['1-2', '5', '7-9']"""
+    num_list = list(sorted(set(num_list)))
+    tmp = [num_list[0]]
+    tmp_list = []
+    for num in num_list[1:]:
+        if num - 1 in tmp:
+            tmp.append(num)
+        else:
+            tmp_list.append(deepcopy(tmp))
+            tmp = [num]
+    tmp_list.append(tmp)
+    return [ str(nums[0]) if len(nums) == 1 else f"{nums[0]}{connector}{nums[-1]}" for nums in tmp_list]
 
 class KabschFit:
     """
@@ -193,10 +208,11 @@ if __name__ == '__main__':
                 for idx in idx_extra:
                     recept_a = ref_obj.pdb[n]
                     bonded_a = ref_obj.pdb[idx]
+                    if recept_a['resName'] not in aa: break     # skip if not a residue
                     coord_recept = ref_pmd.coordinates[n]
                     coord_bonded = ref_pmd.coordinates[idx]
                     vector_bond = (coord_bonded-coord_recept) / np.linalg.norm(coord_bonded-coord_recept)
-                    new_a = PDB.atom_empty
+                    new_a = deepcopy(PDB.atom_empty)
                     new_a.update({'element':"H", 'name':"H", 'segment':"X", 'resSeq':bonded_a['resSeq']})
                     new_a['x'], new_a['y'], new_a['z'] = vector_bond * dist + coord_recept
                     ref_obj_all.pdb.append(new_a)
@@ -212,7 +228,7 @@ if __name__ == '__main__':
         # write constrained atoms file
         constr_str = f"""\
                          $constrain
-                           atoms: {",".join(map(str, _atom_ids(ref_obj_all, constr_set, shift=1)))}
+                           atoms: {",".join(int_list_condensate(_atom_ids(ref_obj_all, constr_set, shift=1)))}
                            force constant={force}
                            reference={xyz_file}
                          $end
