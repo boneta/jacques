@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Description: Prepare/process structures to/from CREST
-# Last update: 17-06-2021
+# Last update: 18-06-2021
 
 # CREST: Conformer-Rotamer Ensemble Sampling Tool based on the xtb Semiempirical Extended Tight-Binding Program Package
 # https://github.com/grimme-lab/crest / https://xtb-docs.readthedocs.io/en/latest/crest.html
@@ -197,9 +197,10 @@ if __name__ == '__main__':
         print("# Preparing input files for CREST\n")
 
         # add missing atoms as H to get close shell when broken boundary bonds
-        dist = 1.0  # distance to put the new H atom
+        new_dist = 1.0  # distance to put the new H atom
         ref_pmd = pdb4all2parmed(ref_obj)
         ref_pmd_all = pdb4all2parmed(ref_obj_all)
+        coord_all = np.array(ref_obj_all.xyz)
         for n, n_all in zip(_atom_ids(ref_obj, constr_set), _atom_ids(ref_obj_all, constr_set)):
             bonds_ori = ref_pmd.atoms[n].bond_partners
             bonds_all = ref_pmd_all.atoms[n_all].bond_partners
@@ -212,9 +213,15 @@ if __name__ == '__main__':
                     coord_recept = ref_pmd.coordinates[n]
                     coord_bonded = ref_pmd.coordinates[idx]
                     vector_bond = (coord_bonded-coord_recept) / np.linalg.norm(coord_bonded-coord_recept)
+                    coord_new = vector_bond * new_dist + coord_recept
+                    # check if new coordinates are too close to any other atom
+                    diff = np.delete(coord_all, n_all, 0) - coord_new
+                    dist = np.sqrt((diff*diff).sum(axis=1))
+                    if np.amin(dist) < 1.1: continue
+                    # add new atom
                     new_a = deepcopy(PDB.atom_empty)
                     new_a.update({'element':"H", 'name':"H", 'segment':"X", 'resSeq':bonded_a['resSeq']})
-                    new_a['x'], new_a['y'], new_a['z'] = vector_bond * dist + coord_recept
+                    new_a['x'], new_a['y'], new_a['z'] = coord_new
                     ref_obj_all.pdb.append(new_a)
                     constr_set.add((new_a['segment'], new_a['resSeq'], new_a['name']))
                     print(f"Added atom: 'H' -> '{bonded_a['name']}' @ "+
