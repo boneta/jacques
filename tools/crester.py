@@ -26,14 +26,16 @@
 
   In case of an atom being in both groups, the atom will be included in the
   movable selection. The selection can be custom named and proper indicated with
-  '-movable' and '-constr'. The constraint force is tunned with '-force'.
+  '-movable' and '-constr'. The constraint force is tunned with '-fc'.
 
   If a bond is broken because of one side is left out of any selection and it was
   part of a standard residue, the missing atom will be replaced with an "H" atom
   at 1Å that will be kept constrained.
 
-  Two files are produced, a .xyz file that will also serve of reference for the
-  constraints and a .tmol file as input for CREST.
+  Several files are prepared 
+    - .xyz : coordinates selected and also serve of reference for the constraints
+    - .constr : constraints in xTB selection (for input after '--cinp')
+    - .tmol : input for CREST in TURBOMOLE format
 
   When a output structure from CREST is provided with '-x', the program changes
   its behaviour to process the results and insert it in its original position
@@ -158,8 +160,8 @@ if __name__ == '__main__':
                         help='name of atom selection group to keep movable to generate conformers (def: MOV)')
     parser.add_argument('-constr', metavar='<>', type=str, required=False, default='CONSTR',
                         help='name of atom selection group to include but keep constrained (def: CONSTR)')
-    parser.add_argument('-force', metavar='#', type=float, required=False, default=0.5,
-                        help='harmonic force to keep constrined atoms [Hartree*Bohr^-2] (def: 0.5)')
+    parser.add_argument('-fc', metavar='#', type=float, required=False, default=0.1,
+                        help='harmonic force to keep constrined atoms [Hartree*Bohr^-2] (def: 0.1)')
     args = parser.parse_args()
 
     ref_file     = args.c
@@ -169,7 +171,7 @@ if __name__ == '__main__':
     basename     = args.o or dynn_name
     movable_name = args.movable
     constr_name  = args.constr
-    force        = args.force
+    fc           = args.fc
 
     # initalizate objects & read files
     ref_obj = PDB()
@@ -237,25 +239,33 @@ if __name__ == '__main__':
         print("\n             movable     constr      total")
         print(f"No atoms: {len(movable_set):>10d} {len(constr_set):>10d} {ref_obj_all.natoms:>10d}\n")
 
+        # constrained atoms file
+        constr_str = f"""\
+                      $constrain
+                          atoms: {",".join(int_list_condensate(_atom_ids(ref_obj_all, constr_set, shift=1)))}
+                          force constant={fc}
+                          reference={basename}.xyz
+                      """
+
+        # XYZ
+        print(f"Writing coordinates -> '{basename}.xyz'")
+        ref_obj_all.write_xyz(basename+".xyz")
+        # CONSTRAINTS
+        print(f"Writing constraints -> '{basename}.constr'")
+        with open(basename+".constr", "w") as f:
+            f.write(dedent(constr_str))
+            f.write("$end\n")
         # TURBOMOLE
         print(f"Writing CREST input -> '{basename}.tmol'")
         with open(basename+".tmol", "w") as f:
+            # write constraints (not recognized by CREST)
+            f.write(dedent(constr_str))
             # write coordinates
             f.write("$coord\n")
             for atom in ref_obj_all.pdb:
                 f.write(" {:>18.10f} {:>18.10f} {:>18.10f}       {:<6s}\n"
                         .format(atom['x']*A2BOHR, atom['y']*A2BOHR, atom['z']*A2BOHR, atom['element'].lower()))
-            # write constrained atoms file
-            f.write(dedent(f"""\
-                            $constrain
-                              atoms: {",".join(int_list_condensate(_atom_ids(ref_obj_all, constr_set, shift=1)))}
-                              force constant={force}
-                              reference={basename}.xyz
-                            $end
-                            """))
-        # XYZ
-        print(f"Writing coordinates -> '{basename}.xyz'")
-        ref_obj_all.write_xyz(basename+".xyz")
+            f.write("$end\n")
 
     else:
         print("# Processing output from CREST")
