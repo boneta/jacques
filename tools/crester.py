@@ -32,9 +32,13 @@
   part of a standard residue, the missing atom will be replaced with an "H" atom
   at 1Å that will be kept constrained.
 
-  When a result structure from CREST is provided with '-x', it is inserted in its
-  original position in the reference structure. The constrained atoms are used to
-  align the fragment back.
+  Two files are produced, a .xyz file that will also serve of reference for the
+  constraints and a .tmol file as input for CREST.
+
+  When a output structure from CREST is provided with '-x', the program changes
+  its behaviour to process the results and insert it in its original position
+  in the reference .pdb/.crd structure. The constrained atoms are used to align
+  the fragment back.
 
 """
 
@@ -51,6 +55,9 @@ from jacques.dynnconfig import DynnConfig
 from parmed import Atom
 from parmed.structure import Structure
 
+# Bohr radius / Ångstrom
+BOHR2A = 0.5291772109
+A2BOHR = 1/BOHR2A
 
 def _sele2set(selection: dict) -> set:
     sele_set = set()
@@ -145,7 +152,7 @@ if __name__ == '__main__':
                         help='coordinates file resulting from CREST, controls mode to/from')
     parser.add_argument('-o', metavar='<name>', type=str, required=False,
                         help='basename for output files, default taken from .dynn\n'+
-                             '  w/o .xyz: <name>.xyz & <name>.constr\n'+
+                             '  w/o .xyz: <name>.xyz & <name>.tmol\n'+
                              '  w/  .xyz: <name>.pdb / <name>.crd')
     parser.add_argument('-movable', metavar='<>', type=str, required=False, default='MOV',
                         help='name of atom selection group to keep movable to generate conformers (def: MOV)')
@@ -224,29 +231,31 @@ if __name__ == '__main__':
                     new_a['x'], new_a['y'], new_a['z'] = coord_new
                     ref_obj_all.pdb.append(new_a)
                     constr_set.add((new_a['segment'], new_a['resSeq'], new_a['name']))
-                    print(f"Added atom: 'H' -> '{bonded_a['name']}' @ "+
+                    print(f"Bound atom to H:  {bonded_a['name']:4s}  -  "+
                           f"//{recept_a['segment']}//{recept_a['resName']}`{recept_a['resSeq']}/{recept_a['name']}")
 
         print("\n             movable     constr      total")
         print(f"No atoms: {len(movable_set):>10d} {len(constr_set):>10d} {ref_obj_all.natoms:>10d}\n")
 
-        xyz_file = basename+".xyz"
-
-        # write constrained atoms file
-        constr_str = f"""\
-                         $constrain
-                           atoms: {",".join(int_list_condensate(_atom_ids(ref_obj_all, constr_set, shift=1)))}
-                           force constant={force}
-                           reference={xyz_file}
-                         $end
-                      """
-
-        # write output files
-        print(f"Writing constraint parameters -> '{basename}.constr'")
-        with open(basename+".constr", "w") as f:
-            f.write(dedent(constr_str))
+        # TURBOMOLE
+        print(f"Writing CREST input -> '{basename}.tmol'")
+        with open(basename+".tmol", "w") as f:
+            # write coordinates
+            f.write("$coord\n")
+            for atom in ref_obj_all.pdb:
+                f.write(" {:>18.10f} {:>18.10f} {:>18.10f}       {:<6s}\n"
+                        .format(atom['x']*A2BOHR, atom['y']*A2BOHR, atom['z']*A2BOHR, atom['element'].lower()))
+            # write constrained atoms file
+            f.write(dedent(f"""\
+                            $constrain
+                              atoms: {",".join(int_list_condensate(_atom_ids(ref_obj_all, constr_set, shift=1)))}
+                              force constant={force}
+                              reference={basename}.xyz
+                            $end
+                            """))
+        # XYZ
         print(f"Writing coordinates -> '{basename}.xyz'")
-        ref_obj_all.write_xyz(xyz_file)
+        ref_obj_all.write_xyz(basename+".xyz")
 
     else:
         print("# Processing output from CREST")
