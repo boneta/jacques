@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Description: Prepare/process structures to/from CREST
-# Last update: 18-06-2021
+# Last update: 22-06-2021
 
 # CREST: Conformer-Rotamer Ensemble Sampling Tool based on the xtb Semiempirical Extended Tight-Binding Program Package
 # https://github.com/grimme-lab/crest / https://xtb-docs.readthedocs.io/en/latest/crest.html
@@ -32,10 +32,16 @@
   part of a standard residue, the missing atom will be replaced with an "H" atom
   at 1Å that will be kept constrained.
 
-  Several files are prepared 
+  Several files are prepared:
     - .xyz : coordinates selected and also serve of reference for the constraints
     - .constr : constraints in xTB selection (for input after '--cinp')
     - .tmol : input for CREST in TURBOMOLE format
+
+  Electrostatic embedding can be set by providing a force field for the charges
+  of every atom and a selection of atoms after '-electr' option. The point charges
+  hardness will be treated accordingly to the element but can be fixed with a
+  larger value with '-hardness'. The corresponding embedding command is added to
+  the .tmol file and the necessary .pc with the charges will is created.
 
   When a output structure from CREST is provided with '-x', the program changes
   its behaviour to process the results and insert it in its original position
@@ -54,12 +60,13 @@ from textwrap import dedent
 import numpy as np
 from pdb4all import PDB, Ptable, aa
 from jacques.dynnconfig import DynnConfig
+from jacques.dyntopol import DynTopol
 from parmed import Atom
 from parmed.structure import Structure
 
 # Bohr radius / Ångstrom
 BOHR2A = 0.5291772109
-A2BOHR = 1/BOHR2A
+A2BOHR = 1./BOHR2A
 
 def _sele2set(selection: dict) -> set:
     sele_set = set()
@@ -150,28 +157,39 @@ if __name__ == '__main__':
                         help='reference coordinates file')
     parser.add_argument('-f', metavar='.dynn', type=str, required=True,
                         help='configuration file in DYNAMON format to take atomic selections and constraints')
+    parser.add_argument('-ff', metavar='.ff', type=str, required=False,
+                        help='force field in fDynamo format to take electrostatic charges')
     parser.add_argument('-x', metavar='.xyz', type=str, required=False,
                         help='coordinates file resulting from CREST, controls mode to/from')
     parser.add_argument('-o', metavar='<name>', type=str, required=False,
                         help='basename for output files, default taken from .dynn\n'+
-                             '  w/o .xyz: <name>.xyz & <name>.tmol\n'+
-                             '  w/  .xyz: <name>.pdb / <name>.crd')
+                             '  w/o .xyz: .xyz, .tmol, .constr [, .pc]\n'+
+                             '  w/  .xyz: .pdb/.crd')
     parser.add_argument('-movable', metavar='<>', type=str, required=False, default='MOV',
                         help='name of atom selection group to keep movable to generate conformers (def: MOV)')
     parser.add_argument('-constr', metavar='<>', type=str, required=False, default='CONSTR',
                         help='name of atom selection group to include but keep constrained (def: CONSTR)')
+    parser.add_argument('-electr', metavar='<>', type=str, required=False,
+                        help='name of atom selection group to include as point charges')
     parser.add_argument('-fc', metavar='#', type=float, required=False, default=0.1,
                         help='harmonic force to keep constrined atoms [Hartree*Bohr^-2] (def: 0.1)')
+    parser.add_argument('-hardness', metavar='#', type=int, required=False,
+                        help='chemical hardness behaviour for partial charges (def: elemental)')
     args = parser.parse_args()
 
     ref_file     = args.c
     dynn_file    = args.f
     dynn_name    = os.path.splitext(dynn_file)[0]
+    ff_file      = args.ff
     xyz_file     = args.x
     basename     = args.o or dynn_name
     movable_name = args.movable
     constr_name  = args.constr
+    electr_name  = args.electr
     fc           = args.fc
+    hardness     = args.hardness
+    electr_flg   = ff_file and electr_name
+
 
     # initalizate objects & read files
     ref_obj = PDB()
@@ -201,7 +219,6 @@ if __name__ == '__main__':
     ref_obj_all    = _filter_structure(ref_obj, _atom_ids(ref_obj, all_set))
     ref_obj_constr = _filter_structure(ref_obj, _atom_ids(ref_obj, constr_set))
 
-    print("## CRESTER")
     if not xyz_file:
         print("# Preparing input files for CREST\n")
 
@@ -233,19 +250,48 @@ if __name__ == '__main__':
                     new_a['x'], new_a['y'], new_a['z'] = coord_new
                     ref_obj_all.pdb.append(new_a)
                     constr_set.add((new_a['segment'], new_a['resSeq'], new_a['name']))
-                    print(f"Bound atom to H:  {bonded_a['name']:4s}  -  "+
-                          f"//{recept_a['segment']}//{recept_a['resName']}`{recept_a['resSeq']}/{recept_a['name']}")
+                    print(f"Boundary atom to H: {PDB.pymol_sele_macro(bonded_a)} connected to {PDB.pymol_sele_macro(recept_a)}")
 
         print("\n             movable     constr      total")
         print(f"No atoms: {len(movable_set):>10d} {len(constr_set):>10d} {ref_obj_all.natoms:>10d}\n")
 
-        # constrained atoms file
+        # constrained atoms
         constr_str = f"""\
                       $constrain
                           atoms: {",".join(int_list_condensate(_atom_ids(ref_obj_all, constr_set, shift=1)))}
                           force constant={fc}
                           reference={basename}.xyz
                       """
+        constr_str = dedent(constr_str)
+
+        # electrostatic embedding
+        if electr_flg:
+            electr_set = _sele2set(dynn_obj.selection.get(electr_name, dict())) - all_set
+            if not electr_set:
+                sys.exit("ERROR: Electrostatic selection empty or not found")
+            ref_obj_electr = _filter_structure(ref_obj, _atom_ids(ref_obj, electr_set))
+            # add charge property
+            topol = DynTopol(ff_file)
+            for atom in ref_obj_electr.pdb:
+                try:
+                    atom['charge'] = topol.top['residues'][atom['resName']]['atoms'][atom['name']]['charge']
+                except KeyError:
+                    print(f"WARNING: Charge not found for atom '{PDB.pymol_sele_macro(atom)}'")
+                    atom['charge'] = 0.
+            # change hardness if requested
+            if hardness:
+                ref_obj_electr.clean_field('element', str(hardness))
+            # add embedding command
+            constr_str += f"$embedding\n    input={basename}.pc\n"
+            # write point charges file
+            ref_obj_electr.remove('charge', 0.)     # remove 0 charges
+            print(f"Writing point charges -> '{basename}.pc'")
+            with open(basename+".pc", "w") as f:
+                # write coordinates
+                f.write(f"{ref_obj_electr.natoms}\n")
+                for atom in ref_obj_electr.pdb:
+                    f.write(" {:>18.10f}  {:>18.10f} {:>18.10f} {:>18.10f}       {:<6s}\n"
+                            .format(atom['charge'], atom['x']*A2BOHR, atom['y']*A2BOHR, atom['z']*A2BOHR, atom['element']))
 
         # XYZ
         print(f"Writing coordinates -> '{basename}.xyz'")
