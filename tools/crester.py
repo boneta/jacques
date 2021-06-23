@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Description: Prepare/process structures to/from CREST
-# Last update: 22-06-2021
+# Last update: 23-06-2021
 
 # CREST: Conformer-Rotamer Ensemble Sampling Tool based on the xtb Semiempirical Extended Tight-Binding Program Package
 # https://github.com/grimme-lab/crest / https://xtb-docs.readthedocs.io/en/latest/crest.html
@@ -38,7 +38,8 @@
     - .tmol : input for CREST in TURBOMOLE format
 
   Electrostatic embedding can be set by providing a force field for the charges
-  of every atom and a selection of atoms after '-electr' option. The point charges
+  of every atom and a selection of atoms after '-electr' option. 'ALL' is
+  reserved as special name to include all the atoms' charges. The point charges
   hardness will be treated accordingly to the element but can be fixed with a
   larger value with '-hardness'. The corresponding embedding command is added to
   the .tmol file and the necessary .pc with the charges will is created.
@@ -86,7 +87,6 @@ def _filter_structure(structure: 'PDB', atom_ids: list) -> 'PDB':
     return structure_new
 
 def pdb4all2parmed(structure:'PDB') -> 'Structure':
-    structure.translate_residues('opls')
     structure.guess_elements()
     struc_pmd = Structure()
     for a in structure.pdb:
@@ -170,7 +170,7 @@ if __name__ == '__main__':
     parser.add_argument('-constr', metavar='<>', type=str, required=False, default='CONSTR',
                         help='name of atom selection group to include but keep constrained (def: CONSTR)')
     parser.add_argument('-electr', metavar='<>', type=str, required=False,
-                        help='name of atom selection group to include as point charges')
+                        help='name of atom selection group to include as point charges (special name: ALL)')
     parser.add_argument('-fc', metavar='#', type=float, required=False, default=0.1,
                         help='harmonic force to keep constrined atoms [Hartree*Bohr^-2] (def: 0.1)')
     parser.add_argument('-hardness', metavar='#', type=int, required=False,
@@ -266,7 +266,9 @@ if __name__ == '__main__':
 
         # electrostatic embedding
         if electr_flg:
-            electr_set = _sele2set(dynn_obj.selection.get(electr_name, dict())) - all_set
+            electr_set = {(a['segment'], a['resSeq'], a['name']) for a in ref_obj.pdb} if electr_name.upper() == "ALL" \
+                         else _sele2set(dynn_obj.selection.get(electr_name, dict()))
+            electr_set -= all_set
             if not electr_set:
                 sys.exit("ERROR: Electrostatic selection empty or not found")
             ref_obj_electr = _filter_structure(ref_obj, _atom_ids(ref_obj, electr_set))
