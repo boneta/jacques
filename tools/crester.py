@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Description: Prepare/process structures to/from CREST
-# Last update: 23-06-2021
+# Last update: 29-06-2021
 
 # CREST: Conformer-Rotamer Ensemble Sampling Tool based on the xtb Semiempirical Extended Tight-Binding Program Package
 # https://github.com/grimme-lab/crest / https://xtb-docs.readthedocs.io/en/latest/crest.html
@@ -261,6 +261,8 @@ if __name__ == '__main__':
                           atoms: {",".join(int_list_condensate(_atom_ids(ref_obj_all, constr_set, shift=1)))}
                           force constant={fc}
                           reference={basename}.xyz
+                      $metadyn
+                          atoms: {",".join(int_list_condensate(_atom_ids(ref_obj_all, movable_set, shift=1)))}
                       """
         constr_str = dedent(constr_str)
 
