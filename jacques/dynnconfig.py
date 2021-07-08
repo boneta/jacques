@@ -588,11 +588,17 @@ class DynnConfig:
                 except IndexError:
                     not_found.append(nums)
                     continue
-                routine = """
-                          cd {pwd}\n
-                          {exe} {dynnfile} --OUT {out}.{numd}.out --NAME {name}.{numd} --N {nums} --COORD {crd} > {name}.{numd}.log\n
-                          """.format(pwd=os.getcwd(), exe=exe, dynnfile=dynnfile, name=name,
-                                     out=out.split(".out")[0], numd=numd, nums=nums, crd=crd)
+                if mode == 'pmf':
+                    routine = """
+                              cd {pwd}\n
+                              {exe} {dynnfile} --NAME {name}.{numd} --N {nums} --COORD {crd} > {name}.{numd}.log\n
+                              """.format(pwd=os.getcwd(), exe=exe, dynnfile=dynnfile, name=name, numd=numd, nums=nums, crd=crd)
+                elif mode == 'corr':
+                    routine = """
+                              mkdir {pwd}/{name}.{numd}
+                              cd {pwd}/{name}.{numd}\n
+                              {exe} ../{dynnfile} --OUT ../{out} --NAME {name}.{numd} --N {nums} --COORD ../{crd} > {name}.{numd}.log\n
+                              """.format(pwd=os.getcwd(), exe=exe, dynnfile=dynnfile, name=name, out=out, numd=numd, nums=nums, crd=crd)
                 with open(os.path.join("jobs", jobfile), 'w') as jobf:
                     jobf.write(queue_param)
                     jobf.write(dedent(routine))
