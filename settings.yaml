@@ -1,0 +1,105 @@
+# Default settings for JACQUES
+
+## GENERAL OPTIONS
+# name out sys bin sele coord ff seq
+# cores memory
+# charge multi force_uhf
+# semiemp gauss func basis
+# cg_steps cg_tolerance lbfgsb_steps lbfgsb_tolerance
+# temp md_step equi prod dcd_freq vel
+# pbc
+# loc_steps loc_tolerance ts
+# irc_dir irc_steps irc_dsp
+# dcd_stride int_dcd int_wbox int_ions
+# kie_atomn kie_skip kie_mass kie_hess
+# exe queue
+#
+## CONSTRAINTS OPTIONS ('constr')
+# type symm
+# atoms force
+# dcrd n
+# dinit dend step dist
+# dfile
+
+queues:
+  sge: BIFIZCAM
+  slurm: bifi
+
+folders:
+  dynamon: $DYNAMON
+  messages: $HOME/msg
+  jobs: $HOME/jobs
+
+options:
+  all:
+    exe: dynamon
+    cores: 1
+    memory: 4000MB
+    semiemp: AM1
+  sp:
+    name: sp
+  mini:
+    name: mini
+    cg_steps: 10000
+    cg_tolerance: 0.2
+    lbfgsb_steps: 1000
+    lbfgsb_tolerance: 0.1
+  locate:
+    name: locate
+    loc_steps: 100
+    loc_tolerance: 1
+    ts: 'False'
+  md:
+    name: md
+    temp: 298
+    md_step: 0.001
+    equilibration: 0
+    production: 1000
+    dcd_freq: 10
+  interaction:
+    name: int
+  kie:
+    name: kie
+    temp: 298
+    kie_mass: 2.01410177812
+    kie_hess: update.dump
+  irc:
+    name: irc
+    irc_dir: 0
+    irc_steps: 400
+    irc_dsp: 0.01
+  scan:
+    name: scan
+    cg_steps: 10000
+    cg_tolerance: 1
+    lbfgsb_steps: 1000
+    lbfgsb_tolerance: 1
+    constr:
+      force: 4000
+      step: 0.05
+  pes:
+    name: pes
+    cg_steps: 10000
+    cg_tolerance: 1
+    lbfgsb_steps: 1000
+    lbfgsb_tolerance: 1
+    constr:
+      force: 4000
+      step: 0.05
+  pmf:
+    name: pmf
+    temp: 298
+    md_step: 0.001
+    equilibration: 10000
+    production: 20000
+    dcd_freq: 100
+    constr:
+      force: 2500
+      step: 0.05
+  corr:
+    name: corr
+    cores: 8
+    memory: 8000MB
+    gauss: 'True'
+    func: M062X
+    basis: 6-31G+(d,p)

@@ -1,6 +1,8 @@
 # user settings
-settings.json
+settings.yaml
 
 jacques/__pycache__
 tools/*.pyc
 tools/__pycache__
+
+.vscode

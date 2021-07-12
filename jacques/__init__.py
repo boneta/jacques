@@ -12,7 +12,8 @@ r'''.
 
 import os
 import sys
-import json
+
+import yaml
 
 
 __version__ = '0.1.0'
@@ -28,10 +29,10 @@ dynamon_path = os.path.expandvars('$DYNAMON')
 
 # read settings
 try:
-    with open(jacques_path+'/../settings.json', 'r') as _file:
-        settings = json.loads(_file.read())
+    with open(jacques_path+'/../settings.yaml', 'r') as f:
+        settings = yaml.load(f, Loader=yaml.FullLoader)
 except:
-    sys.exit("ERROR: Problems reading 'settings.json' file")
+    sys.exit("ERROR: Problems reading 'settings.yaml' file")
 
 # default queues names
 queues_def = settings['queues']
