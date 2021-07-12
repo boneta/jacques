@@ -43,7 +43,7 @@ def parser(mode=None):
     h+=" -- Friendly interface for QM/MM calculations --\n\n"
 
     if mode not in mode_list: mode = "<mode>"
-    h+=f" USAGE:   jacques.py {mode} [[--option arg] ...]\n\n"
+    h+=f" USAGE:   jacques {mode} [[--option arg] ...]\n\n"
     h+=" OPTIONS:\n"
 
     p = MyParser(formatter_class=argparse.RawTextHelpFormatter, add_help=False)

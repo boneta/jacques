@@ -14,7 +14,7 @@ This installation also includes the [DYNAMO<sup>N</sup>](https://github.com/bone
 2. Set the environment variables of JACQUES (and DYNAMO<sup>N</sup>). For a better usability, *source* the file `jacques.rc` in your *.bashrc*.
 3. Compile DYNAMON with a Fortran compiler. Tested with *gfortran*.
 
-```
+```bash
 git clone --recursive https://github.com/boneta/jacques
 source jacques/jacques.rc
 make -C $DYNAMON/src
@@ -23,5 +23,5 @@ make -C $DYNAMON/src
 ## Usage
 For more information, see the [documentation](./docs/README.md).
 ```
-jacques.py <mode> [options]
+jacques <mode> [options]
 ```

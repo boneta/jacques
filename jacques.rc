@@ -9,7 +9,7 @@
 export JACQUES=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
 
 # include this folder and tools in PATH
-export PATH=$PATH:${JACQUES}:${JACQUES}/tools
+export PATH=$PATH:${JACQUES}:${JACQUES}/bin:${JACQUES}/tools
 # add to PYTHONPATH
 export PYTHONPATH=$PYTHONPATH:${JACQUES}:${JACQUES}/tools
 
