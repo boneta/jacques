@@ -21,12 +21,13 @@ from scipy import interpolate as sp_interpolate
 
 # fortranized functions
 try:
-    from jacques.utils import interpolation_fortran
+    from . import interpolation_fortran
     _fortran_local = True
 except:
     sys.stderr.write(
         "WARNING: Interpolation fortran subroutines could not be imported\n")
     _fortran_local = False
+
 
 def point_in(coord, grid, thr, fortran=True):
     '''
