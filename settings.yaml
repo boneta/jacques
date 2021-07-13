@@ -1,4 +1,6 @@
-# Default settings for JACQUES
+#######################################################################
+##                          DEFAULT SETTINGS                         ##
+#######################################################################
 
 ## GENERAL OPTIONS
 # name out sys bin sele coord ff seq
@@ -13,7 +15,7 @@
 # dcd_stride int_dcd int_wbox int_ions
 # kie_atomn kie_skip kie_mass kie_hess
 # exe queue
-#
+
 ## CONSTRAINTS OPTIONS ('constr')
 # type symm
 # atoms force
@@ -48,7 +50,7 @@ options:
     name: locate
     loc_steps: 100
     loc_tolerance: 1
-    ts: 'False'
+    ts: False
   md:
     name: md
     temp: 298
@@ -100,6 +102,6 @@ options:
     name: corr
     cores: 8
     memory: 8000MB
-    gauss: 'True'
+    gauss: True
     func: M062X
-    basis: 6-31G+(d,p)
+    basis: 6-31+G(d,p)
