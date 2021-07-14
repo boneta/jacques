@@ -18,7 +18,7 @@ from jacques.umbrellaintegrator import umbrellaint
 from .interpolation import point_in, mv_inside, grid2point
 
 
-def minimize(coord, grid_d, grid, z, opt='hc', step=0.01, method='legacy', max_iter=1e4, **kwargs):
+def minimize(coord, grid_d, grid, z, opt='hc', step=0.01, imethod='legacy', max_iter=1e4, **kwargs):
     '''
         Analytical localization of minimum in a surface
         from some starting coordinates
@@ -39,7 +39,7 @@ def minimize(coord, grid_d, grid, z, opt='hc', step=0.01, method='legacy', max_i
                 hc: simple hill climbing
         step : float, optional
             distance to advance on every iteration (def: 0.01)
-        method : {nearest, legacy, scipy}, optional
+        imethod : {nearest, legacy, scipy}, optional
             interpolation method for the points (def: legacy)
             additional options will be pass to 'grid2point'
         max_iter : int, optional
@@ -69,7 +69,7 @@ def minimize(coord, grid_d, grid, z, opt='hc', step=0.01, method='legacy', max_i
         # minimize
         for iteration in range(1, max_iter+1):
             rc = min_path[-1]
-            grad = [grid2point(rc, grid, dZ[:, i], method, **kwargs) for i in range(2)]
+            grad = [grid2point(rc, grid, dZ[:, i], imethod, **kwargs) for i in range(2)]
             grad_norm = np.linalg.norm(grad)
             rc_new = [rc[i] - grad[i]/grad_norm * step for i in range(2)]
             # break if out of grid or small grad
@@ -94,7 +94,7 @@ def minimize(coord, grid_d, grid, z, opt='hc', step=0.01, method='legacy', max_i
                       [rc[0]-diag, rc[1]+diag],
                       [rc[0]+diag, rc[1]-diag],
                       [rc[0]-diag, rc[1]-diag]]
-            around_energy = np.array([grid2point(p, grid, z, method, **kwargs)
+            around_energy = np.array([grid2point(p, grid, z, imethod, **kwargs)
                                       if point_in(p, grid, grid_d_red) else np.inf for p in around])
             rc_new = around[np.argmin(around_energy)]
             min_path.append(rc_new)

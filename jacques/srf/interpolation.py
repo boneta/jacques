@@ -135,7 +135,7 @@ def smooth_array(grid, neighbours=5, method='sma', fortran=True):
 
     return grid_smooth
 
-def grid2point(coord, grid, Z, method='legacy', fortran=True, **kwargs):
+def grid2point(coord, grid, Z, imethod='legacy', fortran=True, **kwargs):
     '''
         Interpolate values from grid to a single point
 
@@ -147,8 +147,8 @@ def grid2point(coord, grid, Z, method='legacy', fortran=True, **kwargs):
             array of grid coordinates
         Z : ndarray(n)
             array of grid values
-        method : str, optional
-            interpolation algorithm (def: legacy)
+        imethod : str, optional
+            interpolation method (def: legacy)
                 nearest : nearest grid point
                 legacy : legacy method
                     factor : float, optional
@@ -171,7 +171,7 @@ def grid2point(coord, grid, Z, method='legacy', fortran=True, **kwargs):
     kwargs = {**kwargs_def, **kwargs}
 
     # value taken from the nearest grid point
-    if method.lower() == 'nearest':
+    if imethod.lower() == 'nearest':
         # calculate distance of all grid points to the point
         dist = np.linalg.norm(grid[:]-coord, axis=1)
         # value corresponding to the point with minimum distance
@@ -179,7 +179,7 @@ def grid2point(coord, grid, Z, method='legacy', fortran=True, **kwargs):
 
     # legacy method, probably by Jean-Pierre Moreau
     # http://jean-pierre.moreau.pagesperso-orange.fr/f_function.html
-    elif method.lower() == 'legacy':
+    elif imethod.lower() == 'legacy':
         if fortran and _fortran_local:
             point = interpolation_fortran.grid2point_legacy(coord, grid, Z, kwargs['factor'])
         else:
@@ -193,7 +193,7 @@ def grid2point(coord, grid, Z, method='legacy', fortran=True, **kwargs):
             point = np.sum(Z*w) / np.sum(w)
 
     # scipy's interp2d interpolation
-    elif method.lower() == 'scipy':
+    elif imethod.lower() == 'scipy':
         # build interpolation function
         inter = sp_interpolate.interp2d(x = grid[:, 0],
                                         y = grid[:, 1],
@@ -209,7 +209,7 @@ def grid2point(coord, grid, Z, method='legacy', fortran=True, **kwargs):
 
     return point
 
-def grid2grid(grid, Z, grid2, method='legacy', spline=False, fortran=True, **kwargs):
+def grid2grid(grid, Z, grid2, imethod='legacy', spline=False, fortran=True, **kwargs):
     '''
         Interpolate values from grid to grid
 
@@ -221,8 +221,8 @@ def grid2grid(grid, Z, grid2, method='legacy', spline=False, fortran=True, **kwa
             original array of grid values
         grid2 : ndarray(m,2)
             final array of grid coordinates
-        method : str, optional
-            interpolation algorithm (def: legacy)
+        imethod : str, optional
+            interpolation method (def: legacy)
                 legacy : legacy method
                     factor : float, optional
                         gaussian factor (def: 0.15)
@@ -259,7 +259,7 @@ def grid2grid(grid, Z, grid2, method='legacy', spline=False, fortran=True, **kwa
 
     # legacy method, probably by Jean-Pierre Moreau
     # http://jean-pierre.moreau.pagesperso-orange.fr/f_function.html
-    if method.lower() == 'legacy':
+    if imethod.lower() == 'legacy':
         if fortran and _fortran_local:
             Zf = interpolation_fortran.grid2grid_legacy(grid, Z, grid2, kwargs['factor'])
         else:
@@ -275,7 +275,7 @@ def grid2grid(grid, Z, grid2, method='legacy', spline=False, fortran=True, **kwa
                 Zf[i] = np.sum(Z*w) / np.sum(w)
 
     # scipy's griddata interpolation
-    elif method.lower() == 'scipy':
+    elif imethod.lower() == 'scipy':
         Zf = sp_interpolate.griddata(points=grid, values=Z, xi=grid2, method=kwargs['kind'])
         # fill NaN values with nearest interpolation method
         if kwargs['fill_value']:
