@@ -26,8 +26,7 @@ try:
     from . import interpolation_fortran
     _fortran_local = True
 except:
-    sys.stderr.write(
-        "WARNING: Interpolation fortran subroutines could not be imported\n")
+    sys.stderr.write("WARNING: Interpolation fortran subroutines could not be imported\n")
     _fortran_local = False
 
 
@@ -205,10 +204,8 @@ def array2array(grid, z, grid2=None, imethod='gauss', **kwargs):
                         gaussian smoothing factor, bigger smoother (def: 0.4)
         Returns
         -------
-        grid2 : ndarray(m)
-            final array of coordinates
-        z_smooth : ndarray(n)
-            array of smoothed values
+        zf : ndarray(n)
+            array of interpolated values
     """
 
     # default kwargs options
@@ -218,9 +215,9 @@ def array2array(grid, z, grid2=None, imethod='gauss', **kwargs):
     grid2 = grid if grid2 is None else grid2
 
     # interpolate all the points
-    z_smooth = np.asarray([array2point(i, grid, z, imethod, **kwargs) for i in grid2])
+    zf = np.asarray([array2point(i, grid, z, imethod, **kwargs) for i in grid2])
 
-    return grid2, z_smooth
+    return zf
 
 def grid2point(coord, grid, z, imethod='legacy', fortran=True, **kwargs):
     """
