@@ -9,6 +9,8 @@ Functions
     point_in
     mv_inside
     smooth_array
+    array2point
+    array2array
     grid2point
     grid2grid
 
@@ -30,7 +32,7 @@ except:
 
 
 def point_in(coord, grid, thr, fortran=True):
-    '''
+    """
         Evaluate if some coordinates are inside a grid (close to any grid point)
 
         Parameters
@@ -48,7 +50,7 @@ def point_in(coord, grid, thr, fortran=True):
         -------
         bool
             True if inside, False otherwise
-    '''
+    """
 
     coord = np.asarray(coord)
     if fortran and _fortran_local:
@@ -63,7 +65,7 @@ def point_in(coord, grid, thr, fortran=True):
         return np.min(dist) <= thr
 
 def mv_inside(coord, grid, thr, force=False):
-    '''
+    """
         Move coordinates to the closest point inside a grid if are out
 
         Parameters
@@ -81,62 +83,147 @@ def mv_inside(coord, grid, thr, force=False):
         -------
         ndarray(n)
             array of coordinates of the point inside the grid
-    '''
+    """
 
     coord = np.asarray(coord)
     dist = grid[:] - coord
     if coord.size != 1:
         dist = np.linalg.norm(dist, axis=1)
     # closest coordinates or original
-    return grid[np.argmin(dist)] if force or np.min(dist) >= thr else coord
+    return grid[np.argmin(np.abs(dist))] if force or np.min(np.abs(dist)) >= thr else coord
 
-def smooth_array(grid, neighbours=5, method='sma', fortran=True):
-    '''
+def smooth_array(z, method='sma', fortran=True, **kwargs):
+    """
         Smooth the values of an array
 
         Parameters
         ----------
-        grid : ndarray(n)
+        z : ndarray(n)
             array of values
-        neighbours : int, optional
-            number of close points to consider on each side (def: 5)
         method : str, optional
             algorithm for smoothing (def: sma)
-                sma: simple moving average (central)
+                sma : simple moving average (central)
+                    neighbours : int, optional
+                        number of points around to average (def: 5)
         fortran : bool, optional
             use faster function written in Fortran (def: True)
 
         Returns
         -------
-        grid_smooth : ndarray(n)
+        z_smooth : ndarray(n)
             array of smoothed values
-    '''
+    """
 
-    n = grid.shape[0]
-    grid_smooth = np.zeros_like(grid)
+    # default kwargs options
+    kwargs_def = {'neighbours': 5}
+    kwargs = {**kwargs_def, **kwargs}
+
+    n = z.shape[0]
+    z_smooth = np.zeros_like(z)
 
     # simple moving average (central)
     if method.lower() == 'sma':
         if fortran and _fortran_local:
-            grid_smooth = interpolation_fortran.smooth_sma(grid, neighbours)
+            z_smooth = interpolation_fortran.smooth_sma(z, kwargs['neighbours'])
         else:
             # main averages along array
-            for i in range(neighbours, n-neighbours):
-                grid_smooth[i] = np.mean(grid[i-neighbours:i+neighbours+1])
+            for i in range(kwargs['neighbours'], n-kwargs['neighbours']):
+                z_smooth[i] = np.mean(z[i-kwargs['neighbours']:i+kwargs['neighbours']+1])
             # tails
-            for n in range(1, neighbours)[::-1]:
-                grid_smooth[n] = np.mean(grid[:n*2+1])
-                grid_smooth[-n-1] = np.mean(grid[-n*2:])
+            for n in range(1, kwargs['neighbours'])[::-1]:
+                z_smooth[n] = np.mean(z[:n*2+1])
+                z_smooth[-n-1] = np.mean(z[-n*2:])
             # extremes
-            grid_smooth[0], grid_smooth[-1] = grid[0], grid[-1]
+            z_smooth[0], z_smooth[-1] = z[0], z[-1]
 
     else:
         raise ValueError('Unkown smoothing array method')
 
-    return grid_smooth
+    return z_smooth
 
-def grid2point(coord, grid, Z, imethod='legacy', fortran=True, **kwargs):
-    '''
+def array2point(coord, grid, z, imethod='gauss', **kwargs):
+    """
+        Interpolate values from an array to a single point
+
+        Parameters
+        ----------
+        coord : float
+            point to interpolate
+        grid : ndarray(n)
+            array of grid coordinates
+        z : ndarray(n)
+            array of corresponding values
+        imethod : str, optional
+            interpolation method (def: gauss)
+                nearest : nearest grid point
+                gauss : gaussian smoothing
+                    gauss_factor : int, optional
+                        gaussian smoothing factor, bigger smoother (def: 0.01)
+        Returns
+        -------
+        point : float
+            interpolated value on the point
+    """
+
+    # default kwargs options
+    kwargs_def = {'gauss_factor': 0.01}
+    kwargs = {**kwargs_def, **kwargs}
+
+    # value taken from the nearest grid point
+    if imethod.lower() == 'nearest':
+        point = z[np.argmin(np.abs(grid-coord))]
+
+    # gaussian smoothing (based on grids:regular)
+    elif imethod.lower() == 'gauss':
+        gauss_inv = 1./kwargs['gauss_factor']  # gaussian parameter (?)
+        dat_x = np.abs((grid-coord)*gauss_inv)
+        w = np.exp(-np.power(dat_x,2))
+        point = np.sum(z*w) / np.sum(w)
+
+    else:
+        raise ValueError('Unkown smoothing 1D method')
+
+    return point
+
+def array2array(grid, z, grid2=None, imethod='gauss', **kwargs):
+    """
+        Interpolate values from an array base to another array
+
+        Parameters
+        ----------
+        grid : ndarray(n)
+            array of coordinates
+        z : ndarray(n)
+            array of corresponding values
+        grid2 : ndarray(m), optional
+            final array of coordinates
+            if None, the original array is taken
+        imethod : str, optional
+            algorithm for smoothing (def: gauss)
+                gauss : gaussian smoothing (array2point)
+                    gauss_factor : int, optional
+                        gaussian smoothing factor, bigger smoother (def: 0.4)
+        Returns
+        -------
+        grid2 : ndarray(m)
+            final array of coordinates
+        z_smooth : ndarray(n)
+            array of smoothed values
+    """
+
+    # default kwargs options
+    kwargs_def = {'gauss_factor': 0.4}
+    kwargs = {**kwargs_def, **kwargs}
+
+    grid2 = grid if grid2 is None else grid2
+
+    # interpolate all the points
+    z_smooth = np.asarray([array2point(i, grid, z, imethod, **kwargs) for i in grid2])
+
+    return grid2, z_smooth
+
+def grid2point(coord, grid, z, imethod='legacy', fortran=True, **kwargs):
+    """
         Interpolate values from grid to a single point
 
         Parameters
@@ -145,7 +232,7 @@ def grid2point(coord, grid, Z, imethod='legacy', fortran=True, **kwargs):
             array of coordinates of the point
         grid : ndarray(n,2)
             array of grid coordinates
-        Z : ndarray(n)
+        z : ndarray(n)
             array of grid values
         imethod : str, optional
             interpolation method (def: legacy)
@@ -163,11 +250,11 @@ def grid2point(coord, grid, Z, imethod='legacy', fortran=True, **kwargs):
         -------
         point : float
             interpolated value on the point
-    '''
+    """
 
     # default kwargs options
-    kwargs_def = {'factor' : 0.01,
-                  'kind' : 'linear'}
+    kwargs_def = {'factor': 0.01,
+                  'kind': 'linear'}
     kwargs = {**kwargs_def, **kwargs}
 
     # value taken from the nearest grid point
@@ -175,13 +262,13 @@ def grid2point(coord, grid, Z, imethod='legacy', fortran=True, **kwargs):
         # calculate distance of all grid points to the point
         dist = np.linalg.norm(grid[:]-coord, axis=1)
         # value corresponding to the point with minimum distance
-        point = Z[np.argmin(dist)]
+        point = z[np.argmin(dist)]
 
     # legacy method, probably by Jean-Pierre Moreau
     # http://jean-pierre.moreau.pagesperso-orange.fr/f_function.html
     elif imethod.lower() == 'legacy':
         if fortran and _fortran_local:
-            point = interpolation_fortran.grid2point_legacy(coord, grid, Z, kwargs['factor'])
+            point = interpolation_fortran.grid2point_legacy(coord, grid, z, kwargs['factor'])
         else:
             gauss = 1./kwargs['factor']
             dat_x = abs((grid[:, 0]-coord[0])*gauss)
@@ -190,14 +277,14 @@ def grid2point(coord, grid, Z, imethod='legacy', fortran=True, **kwargs):
                                   if x > y else 0.0
                                   if y == 0.0 else y * np.sqrt(1.+x*x/(y*y))
                                   for x, y in zip(dat_x, dat_y)], 2))
-            point = np.sum(Z*w) / np.sum(w)
+            point = np.sum(z*w) / np.sum(w)
 
     # scipy's interp2d interpolation
     elif imethod.lower() == 'scipy':
         # build interpolation function
         inter = sp_interpolate.interp2d(x = grid[:, 0],
                                         y = grid[:, 1],
-                                        z = Z,
+                                        z = z,
                                         kind = kwargs['kind'],
                                         bounds_error = False,
                                         fill_value = None)
@@ -209,18 +296,19 @@ def grid2point(coord, grid, Z, imethod='legacy', fortran=True, **kwargs):
 
     return point
 
-def grid2grid(grid, Z, grid2, imethod='legacy', spline=False, fortran=True, **kwargs):
-    '''
+def grid2grid(grid, z, grid2=None, imethod='legacy', spline=False, fortran=True, **kwargs):
+    """
         Interpolate values from grid to grid
 
         Parameters
         ----------
         grid : ndarray(n,2)
             original array of grid coordinates
-        Z : ndarray(n)
+        z : ndarray(n)
             original array of grid values
-        grid2 : ndarray(m,2)
+        grid2 : ndarray(m,2), optional
             final array of grid coordinates
+            if None, the original grid is taken
         imethod : str, optional
             interpolation method (def: legacy)
                 legacy : legacy method
@@ -248,7 +336,7 @@ def grid2grid(grid, Z, grid2, imethod='legacy', spline=False, fortran=True, **kw
             final array of grid coordinates
         Zf : ndarray(m)
             final array of interpolated grid values
-    '''
+    """
 
     # default kwargs options
     kwargs_def = {'factor' : 0.15,
@@ -257,37 +345,39 @@ def grid2grid(grid, Z, grid2, imethod='legacy', spline=False, fortran=True, **kw
                   'smooth' : 100000}
     kwargs = {**kwargs_def, **kwargs}
 
+    grid2 = grid if grid2 is None else grid2
+
     # legacy method, probably by Jean-Pierre Moreau
     # http://jean-pierre.moreau.pagesperso-orange.fr/f_function.html
     if imethod.lower() == 'legacy':
         if fortran and _fortran_local:
-            Zf = interpolation_fortran.grid2grid_legacy(grid, Z, grid2, kwargs['factor'])
+            zf = interpolation_fortran.grid2grid_legacy(grid, z, grid2, kwargs['factor'])
         else:
             gauss = 1./kwargs['factor']
-            Zf = np.zeros((grid2.shape[0]))
-            for i in range(Zf.shape[0]):
+            zf = np.zeros((grid2.shape[0]))
+            for i in range(zf.shape[0]):
                 dat_x = abs((grid[:, 0]-grid2[i, 0])*gauss)
                 dat_y = abs((grid[:, 1]-grid2[i, 1])*gauss)
                 w = np.exp(-np.power([x * np.sqrt(1.+y*y/(x*x))
                                       if x > y else 0.0
                                       if y == 0.0 else y * np.sqrt(1.+x*x/(y*y))
                                       for x, y in zip(dat_x, dat_y)], 2))
-                Zf[i] = np.sum(Z*w) / np.sum(w)
+                zf[i] = np.sum(z*w) / np.sum(w)
 
     # scipy's griddata interpolation
     elif imethod.lower() == 'scipy':
-        Zf = sp_interpolate.griddata(points=grid, values=Z, xi=grid2, method=kwargs['kind'])
+        zf = sp_interpolate.griddata(points=grid, values=z, xi=grid2, method=kwargs['kind'])
         # fill NaN values with nearest interpolation method
         if kwargs['fill_value']:
-            Zf_near = sp_interpolate.griddata(points=grid, values=Z, xi=grid2, method='nearest')
-            Zf = np.asarray([near if np.isnan(grid) else grid for grid, near in zip(Zf, Zf_near)])
+            Zf_near = sp_interpolate.griddata(points=grid, values=z, xi=grid2, method='nearest')
+            zf = np.asarray([near if np.isnan(grid) else grid for grid, near in zip(zf, Zf_near)])
         # discart NaN values
         else:
             i = 0
-            while i < Zf.size:
-                if np.isnan(Zf[i]):
+            while i < zf.size:
+                if np.isnan(zf[i]):
                     grid2 = np.delete(grid2, i, 0)
-                    Zf = np.delete(Zf, i, 0)
+                    zf = np.delete(zf, i, 0)
                 else:
                     i += 1
 
@@ -298,10 +388,10 @@ def grid2grid(grid, Z, grid2, imethod='legacy', spline=False, fortran=True, **kw
     if spline:
         inter = sp_interpolate.SmoothBivariateSpline(grid2[:, 0],
                                                      grid2[:, 1],
-                                                     Zf,
+                                                     zf,
                                                      kx = 5,
                                                      ky = 5,
                                                      s = kwargs['smooth'])      # big number to work well, otherwise sh*t
-        Zf = inter.ev(grid2[:, 0], grid2[:, 1])
+        zf = inter.ev(grid2[:, 0], grid2[:, 1])
 
-    return grid2, Zf
+    return grid2, zf
