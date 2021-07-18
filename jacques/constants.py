@@ -26,15 +26,18 @@ NA        = 6.02214076e23             # mol-1                   # Avogadro const
 DA        = 1.6605390660e-27          # kg                      # atomic mass constant
 ME        = 9.1093837015e-31          # kg                      # electron mass
 R         = KB * NA                   # J * K-1 * mol-1         # molar gas constant
+BOHR      = 5.291772109e-11           # m                       # Bohr radius (a0)
 
 
 ##  Conversions
-CAL2J     = 4.1868                    # cal -> J
+CAL2J     = 4.184                     # cal -> J
 J2CAL     = 1./CAL2J                  # J -> cal
 EV2J      = 1.602176634e-19           # eV -> J
 HA2J      = 4.3597447222071e-18       # Hartree -> J
 HA2JMOL   = HA2J * NA                 # Hartree -> J * mol-1
 A2NM      = 0.1                       # Å -> nm
+BOHR2A    = BOHR * 1e10               # a0 -> Å
+A2BOHR    = 1./BOHR2A                 # Å -> a0
 
 
 def temp2temp(temp, in_u, out_u='K'):
