@@ -1,13 +1,12 @@
 """
 =======================================================================
-  Utils
+  Surface Operations & Misc.
 =======================================================================
 
 Timing
 ------
 
     ElapTime
-
 
 Interpolation
 -------------
@@ -29,9 +28,16 @@ Minimization
 
     minimize
 
+Correction
+----------
+
+    corr_1D
+    corr_2D
+
 """
 
 from .timing import *
 from .interpolation import *
 from .vector import *
 from .minimization import *
+from .correction import *
