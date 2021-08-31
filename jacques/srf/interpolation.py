@@ -140,7 +140,7 @@ def smooth_array(z, method='sma', fortran=True, **kwargs):
 
     return z_smooth
 
-def array2point(coord, grid, z, imethod='gauss', **kwargs):
+def array2point(coord, grid, z, imethod='lowess', **kwargs):
     """
         Interpolate values from an array to a single point
 
@@ -153,11 +153,11 @@ def array2point(coord, grid, z, imethod='gauss', **kwargs):
         z : ndarray(n)
             array of corresponding values
         imethod : str, optional
-            interpolation method (def: gauss)
+            interpolation method (def: lowess)
                 nearest : nearest grid point
-                gauss : gaussian smoothing
-                    gauss_factor : int, optional
-                        gaussian smoothing factor, bigger smoother (def: 0.01)
+                lowess : local regression with gaussian weighting
+                    span : int, optional
+                        smoothing parameter number, bigger smoother (def: 0.01)
         Returns
         -------
         point : float
@@ -165,26 +165,26 @@ def array2point(coord, grid, z, imethod='gauss', **kwargs):
     """
 
     # default kwargs options
-    kwargs_def = {'gauss_factor': 0.01}
+    kwargs_def = {'span': 0.01}
     kwargs = {**kwargs_def, **kwargs}
 
     # value taken from the nearest grid point
     if imethod.lower() == 'nearest':
         point = z[np.argmin(np.abs(grid-coord))]
 
-    # gaussian smoothing (based on grids:regular)
-    elif imethod.lower() == 'gauss':
-        gauss_inv = 1./kwargs['gauss_factor']  # gaussian parameter (?)
-        dat_x = np.abs((grid-coord)*gauss_inv)
+    # local weighted scatterplot smoothing with gaussian weighting
+    elif imethod.lower() == 'lowess':
+        span_inv = 1./kwargs['span']
+        dat_x = np.abs((grid-coord)*span_inv)
         w = np.exp(-np.power(dat_x,2))
         point = np.sum(z*w) / np.sum(w)
 
     else:
-        raise ValueError('Unkown smoothing 1D method')
+        raise ValueError('Unkown interpolation point method')
 
     return point
 
-def array2array(grid, z, grid2=None, imethod='gauss', **kwargs):
+def array2array(grid, z, grid2=None, imethod='lowess', **kwargs):
     """
         Interpolate values from an array base to another array
 
@@ -198,10 +198,10 @@ def array2array(grid, z, grid2=None, imethod='gauss', **kwargs):
             final array of coordinates
             if None, the original array is taken
         imethod : str, optional
-            algorithm for smoothing (def: gauss)
-                gauss : gaussian smoothing (array2point)
-                    gauss_factor : int, optional
-                        gaussian smoothing factor, bigger smoother (def: 0.4)
+            algorithm for smoothing (def: lowess)
+                lowess : local regression with gaussian weighting (array2point)
+                    span : int, optional
+                        smoothing parameter number, bigger smoother (def: 0.2)
         Returns
         -------
         zf : ndarray(n)
@@ -209,7 +209,7 @@ def array2array(grid, z, grid2=None, imethod='gauss', **kwargs):
     """
 
     # default kwargs options
-    kwargs_def = {'gauss_factor': 0.4}
+    kwargs_def = {'span': 0.2}
     kwargs = {**kwargs_def, **kwargs}
 
     grid2 = grid if grid2 is None else grid2
@@ -219,7 +219,7 @@ def array2array(grid, z, grid2=None, imethod='gauss', **kwargs):
 
     return zf
 
-def grid2point(coord, grid, z, imethod='legacy', fortran=True, **kwargs):
+def grid2point(coord, grid, z, imethod='lowess', fortran=True, **kwargs):
     """
         Interpolate values from grid to a single point
 
@@ -232,16 +232,16 @@ def grid2point(coord, grid, z, imethod='legacy', fortran=True, **kwargs):
         z : ndarray(n)
             array of grid values
         imethod : str, optional
-            interpolation method (def: legacy)
+            interpolation method (def: lowess)
                 nearest : nearest grid point
-                legacy : legacy method
-                    factor : float, optional
-                        gaussian factor (def: 0.01)
+                lowess : local regression with gaussian weighting
+                    span : float, optional
+                        smoothing parameter number, bigger smoother (def: 0.01)
                 scipy : scipy's interp2d interpolation
                     kind : {linear, cubic, quintic}, optional
                         kind of spline interpolation to use (def: linear)
         fortran : bool, optional
-            use function writen in Fortran (def: True)
+            use function written in Fortran (def: True)
 
         Returns
         -------
@@ -250,7 +250,7 @@ def grid2point(coord, grid, z, imethod='legacy', fortran=True, **kwargs):
     """
 
     # default kwargs options
-    kwargs_def = {'factor': 0.01,
+    kwargs_def = {'span': 0.01,
                   'kind': 'linear'}
     kwargs = {**kwargs_def, **kwargs}
 
@@ -261,15 +261,16 @@ def grid2point(coord, grid, z, imethod='legacy', fortran=True, **kwargs):
         # value corresponding to the point with minimum distance
         point = z[np.argmin(dist)]
 
-    # legacy method, probably by Jean-Pierre Moreau
+    # local weighted scatterplot smoothing with gaussian weighting
+    # probably based on code by Jean-Pierre Moreau
     # http://jean-pierre.moreau.pagesperso-orange.fr/f_function.html
-    elif imethod.lower() == 'legacy':
+    elif imethod.lower() == 'lowess':
         if fortran and _fortran_local:
-            point = interpolation_fortran.grid2point_legacy(coord, grid, z, kwargs['factor'])
+            point = interpolation_fortran.grid2point_lowess(coord, grid, z, kwargs['span'])
         else:
-            gauss = 1./kwargs['factor']
-            dat_x = abs((grid[:, 0]-coord[0])*gauss)
-            dat_y = abs((grid[:, 1]-coord[1])*gauss)
+            span_inv = 1./kwargs['span']
+            dat_x = abs((grid[:, 0]-coord[0])*span_inv)
+            dat_y = abs((grid[:, 1]-coord[1])*span_inv)
             w = np.exp(-np.power([x * np.sqrt(1.+y*y/(x*x))
                                   if x > y else 0.0
                                   if y == 0.0 else y * np.sqrt(1.+x*x/(y*y))
@@ -289,11 +290,11 @@ def grid2point(coord, grid, z, imethod='legacy', fortran=True, **kwargs):
         point = inter(coord[0], coord[1], assume_sorted=False)
 
     else:
-        raise NameError('Unkown interpolation method for grid2point')
+        raise NameError('Unkown interpolation point method')
 
     return point
 
-def grid2grid(grid, z, grid2=None, imethod='legacy', spline=False, fortran=True, **kwargs):
+def grid2grid(grid, z, grid2=None, imethod='lowess', spline=False, fortran=True, **kwargs):
     """
         Interpolate values from grid to grid
 
@@ -307,10 +308,10 @@ def grid2grid(grid, z, grid2=None, imethod='legacy', spline=False, fortran=True,
             final array of grid coordinates
             if None, the original grid is taken
         imethod : str, optional
-            interpolation method (def: legacy)
-                legacy : legacy method
-                    factor : float, optional
-                        gaussian factor (def: 0.15)
+            interpolation method (def: lowess)
+                lowess : local regression with gaussian weighting
+                    span : float, optional
+                        smoothing parameter number, bigger smoother (def: 0.2)
                 scipy : scipy's griddata interpolation
                     kind : {linear, nearest, cubic}, optional
                         method of interpolation (def: linear)
@@ -325,7 +326,7 @@ def grid2grid(grid, z, grid2=None, imethod='legacy', spline=False, fortran=True,
                 smoothing factor for spline, needs to be
                 large to avoid trashy results (def: 100000)
         fortran : bool, optional
-            use function writen in Fortran (def: True)
+            use function written in Fortran (def: True)
 
         Returns
         -------
@@ -336,25 +337,26 @@ def grid2grid(grid, z, grid2=None, imethod='legacy', spline=False, fortran=True,
     """
 
     # default kwargs options
-    kwargs_def = {'factor' : 0.15,
-                  'kind' : 'cubic',
-                  'fill_value' : True,
-                  'smooth' : 100000}
+    kwargs_def = {'span': 0.2,
+                  'kind': 'cubic',
+                  'fill_value': True,
+                  'smooth': 100000}
     kwargs = {**kwargs_def, **kwargs}
 
     grid2 = grid if grid2 is None else grid2
 
-    # legacy method, probably by Jean-Pierre Moreau
+    # local weighted scatterplot smoothing with gaussian weighting
+    # probably based on code by Jean-Pierre Moreau
     # http://jean-pierre.moreau.pagesperso-orange.fr/f_function.html
-    if imethod.lower() == 'legacy':
+    if imethod.lower() == 'lowess':
         if fortran and _fortran_local:
-            zf = interpolation_fortran.grid2grid_legacy(grid, z, grid2, kwargs['factor'])
+            zf = interpolation_fortran.grid2grid_lowess(grid, z, grid2, kwargs['span'])
         else:
-            gauss = 1./kwargs['factor']
+            span_inv = 1./kwargs['span']
             zf = np.zeros((grid2.shape[0]))
             for i in range(zf.shape[0]):
-                dat_x = abs((grid[:, 0]-grid2[i, 0])*gauss)
-                dat_y = abs((grid[:, 1]-grid2[i, 1])*gauss)
+                dat_x = abs((grid[:, 0]-grid2[i, 0])*span_inv)
+                dat_y = abs((grid[:, 1]-grid2[i, 1])*span_inv)
                 w = np.exp(-np.power([x * np.sqrt(1.+y*y/(x*x))
                                       if x > y else 0.0
                                       if y == 0.0 else y * np.sqrt(1.+x*x/(y*y))
@@ -379,7 +381,7 @@ def grid2grid(grid, z, grid2=None, imethod='legacy', spline=False, fortran=True,
                     i += 1
 
     else:
-        raise ValueError('Unkown interpolation method for grid2grid')
+        raise ValueError('Unkown interpolation grid method')
 
     # SPLINEs
     if spline:

@@ -16,7 +16,7 @@ import numpy as np
 from .interpolation import array2array, grid2grid
 
 
-def corr_1D(grid, z, potential, correction=None, imethod='gauss', **kwargs):
+def corr_1D(grid, z, potential, correction=None, imethod='lowess', **kwargs):
     """
         Correction 1D
 
@@ -36,8 +36,8 @@ def corr_1D(grid, z, potential, correction=None, imethod='gauss', **kwargs):
             to the potential coordinates and energies
             if None, the values provided as potential energies
             are taken as differences directly
-        imethod : {gauss}, optional
-            interpolation method for the points (def: gauss w/ gauss_factor=0.4)
+        imethod : {lowess}, optional
+            interpolation method for the points (def: lowess w/ span=0.2)
 
         Returns
         -------
@@ -46,7 +46,7 @@ def corr_1D(grid, z, potential, correction=None, imethod='gauss', **kwargs):
     """
 
     # default kwargs options
-    kwargs_def = {'gauss_factor': 0.4}
+    kwargs_def = {'span': 0.2}
     kwargs = {**kwargs_def, **kwargs}
 
     # energy differences  ->  high_level - low_level
@@ -61,7 +61,7 @@ def corr_1D(grid, z, potential, correction=None, imethod='gauss', **kwargs):
 
     return z_corr
 
-def corr_2D(grid, z, potential, correction=None, imethod='legacy', **kwargs):
+def corr_2D(grid, z, potential, correction=None, imethod='lowess', **kwargs):
     '''
         Correction 2D
 
@@ -81,8 +81,8 @@ def corr_2D(grid, z, potential, correction=None, imethod='legacy', **kwargs):
             to the potential coordinates and energies
             if None, the values provided as potential energies
             are taken as differences directly
-        imethod : {legacy, scipy}, optional
-            interpolation method for the points (def: legacy w/ factor=0.4)
+        imethod : {lowess, scipy}, optional
+            interpolation method for the points (def: lowess w/ span=0.2)
 
         Returns
         -------
@@ -91,7 +91,7 @@ def corr_2D(grid, z, potential, correction=None, imethod='legacy', **kwargs):
     '''
 
     # default kwargs options
-    kwargs_def = {'factor': 0.4}
+    kwargs_def = {'span': 0.2}
     kwargs = {**kwargs_def, **kwargs}
 
     # energy differences  ->  high_level - low_level

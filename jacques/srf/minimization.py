@@ -18,7 +18,7 @@ from jacques.umbrellaintegrator import umbrellaint
 from .interpolation import point_in, mv_inside, grid2point
 
 
-def minimize(coord, grid_d, grid, z, opt='hc', step=0.01, imethod='legacy', max_iter=1e4, **kwargs):
+def minimize(coord, grid_d, grid, z, opt='hc', step=0.01, imethod='lowess', max_iter=1e4, **kwargs):
     '''
         Analytical localization of minimum in a surface
         from some starting coordinates
@@ -39,8 +39,8 @@ def minimize(coord, grid_d, grid, z, opt='hc', step=0.01, imethod='legacy', max_
                 hc: simple hill climbing
         step : float, optional
             distance to advance on every iteration (def: 0.01)
-        imethod : {nearest, legacy, scipy}, optional
-            interpolation method for the points (def: legacy)
+        imethod : {nearest, lowess, scipy}, optional
+            interpolation method for the points (def: lowess)
             additional options will be pass to 'grid2point'
         max_iter : int, optional
             maximum number of iterations

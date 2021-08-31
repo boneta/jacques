@@ -9,8 +9,8 @@
 !
 !    point_in
 !    smooth_sma
-!    grid2point_legacy
-!    grid2grid_legacy
+!    grid2point_lowess
+!    grid2grid_lowess
 !
 
 subroutine point_in(coord, grid, thr, n, m, result)
@@ -77,38 +77,38 @@ subroutine smooth_sma(grid, neighbours, n, grid_smooth)
 end subroutine
 
 
-! ======================= 'legacy' interpolation =======================
-! Interpolation based on inverse distance weighting of nearest neighbour
-! probably by Jean-Pierre Moreau
+! ======================= 'lowess' interpolation ======================
+! local weighted scatterplot smoothing with gaussian weighting
+! probably based on code by Jean-Pierre Moreau
 ! http://jean-pierre.moreau.pagesperso-orange.fr/f_function.html
 
-subroutine grid2point_legacy(coord, grid, Z, gauss, n, point)
+subroutine grid2point_lowess(coord, grid, Z, span, n, point)
 
   !--------------------------------------------------------------------
-  ! Interpolate values from grid to a single point
+  ! Local regression from grid to a single point
   !--------------------------------------------------------------------
 
   implicit none
 
   integer, intent(in)  :: n
-  real(8), intent(in)  :: coord(2), grid(n,2), Z(n), gauss
+  real(8), intent(in)  :: coord(2), grid(n,2), Z(n), span
 
   real(8), intent(out) :: point
 
   integer              :: i
   real(8), parameter   :: thr = 1.D-5     ! consider zero if lower
   real(8)              :: x, y
-  real(8)              :: gauss_inv, w(n)
+  real(8)              :: span_inv, w(n)
 
 
-  ! invert gauss parameter
-  gauss_inv = 1.D0 / gauss
+  ! invert smoothing parameter number
+  span_inv = 1.D0 / span
 
   ! iterate over all the grid points
   do i=1, n
     ! calculate absolute diferences of distances
-    x = ABS((grid(i,1)-coord(1))*gauss_inv)
-    y = ABS((grid(i,2)-coord(2))*gauss_inv)
+    x = ABS((grid(i,1)-coord(1))*span_inv)
+    y = ABS((grid(i,2)-coord(2))*span_inv)
     ! calculate weights
     if (x>y) then
       w(i) = EXP( - ( x*SQRT(1.D0+y**2/(x**2) )**2 ))
@@ -124,35 +124,35 @@ subroutine grid2point_legacy(coord, grid, Z, gauss, n, point)
 
 end subroutine
 
-subroutine grid2grid_legacy(grid, Z, grid2, gauss, n, m, Zf)
+subroutine grid2grid_lowess(grid, Z, grid2, span, n, m, Zf)
 
   !--------------------------------------------------------------------
-  ! Interpolate values from grid to grid
+  ! Local regression from grid to grid
   !--------------------------------------------------------------------
 
   implicit none
 
   integer, intent(in)  :: n, m
-  real(8), intent(in)  :: grid(n,2), Z(n), grid2(m,2), gauss
+  real(8), intent(in)  :: grid(n,2), Z(n), grid2(m,2), span
 
   real(8), intent(out) :: Zf(m)
 
   integer              :: i,j
   real(8), parameter   :: thr = 1.D-5     ! consider zero if lower
   real(8)              :: x, y
-  real(8)              :: gauss_inv, w(n)
+  real(8)              :: span_inv, w(n)
 
 
-  ! invert gauss parameter
-  gauss_inv = 1.D0 / gauss
+  ! invert smoothing parameter number
+  span_inv = 1.D0 / span
 
   ! interpolate every point of the final grid
   do j=1, m
     ! iterate over all the grid points
     do i=1, n
       ! calculate absolute diferences of distances
-      x = ABS((grid(i,1)-grid2(j,1))*gauss_inv)
-      y = ABS((grid(i,2)-grid2(j,2))*gauss_inv)
+      x = ABS((grid(i,1)-grid2(j,1))*span_inv)
+      y = ABS((grid(i,2)-grid2(j,2))*span_inv)
       ! calculate weights
       if (x>y) then
         w(i) = EXP( - ( x*SQRT(1.D0+y**2/(x**2) )**2 ))
