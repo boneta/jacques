@@ -13,8 +13,8 @@ Functions
 import sys
 
 import numpy as np
+import umbrellaint
 
-from jacques.umbrellaintegrator import umbrellaint
 from ..vector                   import vproj, vnorm
 from ..interpolation            import point_in, mv_inside, grid2point
 

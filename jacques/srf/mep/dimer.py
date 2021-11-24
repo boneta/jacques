@@ -14,8 +14,8 @@ import sys
 
 import numpy as np
 from scipy import optimize as sp_opt     #TODO: avoid scipy dependency
+import umbrellaint
 
-from jacques.umbrellaintegrator import umbrellaint
 from ..vector                   import vproj, vnorm
 from ..interpolation            import point_in, grid2point
 

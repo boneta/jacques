@@ -8,13 +8,13 @@ import argparse
 from textwrap import dedent
 
 import numpy as np
+import umbrellaint
 
 from jacques.constants          import J2CAL
 from jacques.dynnconfig         import DynnConfig
 from jacques.srf                import mv_inside, smooth_array, grid2grid
 from jacques.srf                import minimize
 from jacques.srf.mep            import dimer, neb
-from jacques.umbrellaintegrator import umbrellaint
 
 
 if __name__ == '__main__':
