@@ -1,6 +1,3 @@
 [submodule "dynamon"]
 	path = dynamon
 	url = http://github.com/boneta/dynamon
-[submodule "jacques/umbrellaintegrator"]
-	path = jacques/umbrellaintegrator
-	url = https://github.com/boneta/UmbrellaIntegrator
