@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+## Minimum Energy Path finder over numerical surfaces
+
+import sys
+import argparse
+from textwrap import dedent
+
+import numpy as np
+
+from jacques.constants          import J2CAL
+from jacques.dynnconfig         import DynnConfig
+from jacques.srf                import mv_inside, smooth_array, grid2grid
+from jacques.srf                import minimize
+from jacques.srf.mep            import dimer, neb
+from jacques.umbrellaintegrator import umbrellaint
+
+
+if __name__ == '__main__':
+
+    # parser
+    parser = argparse.ArgumentParser(prog='mepper',
+                                     description='Minimum Energy Path finder')
+    parser.add_argument('surface', metavar='.dat', type=str,
+                        help='surface to calculate MEP over (3 columns -> X Y Z)')
+    parser.add_argument('-o', '--out', metavar='.dat', type=str,
+                        help='MEP output file (def: mep.dat)',
+                        default="mep.dat")
+    parser.add_argument('-f', metavar='.jcq', type=str,
+                        help='file config in DYNAMON format to take coordiates')
+    parser.add_argument('--coord', metavar='#', type=float, nargs=4,
+                        help='manual set of initial and final coordinates (X1 X2 Y1 Y2)')
+    parser.add_argument('--no-mini', action='store_true',
+                        help='no minimize initial and final coordinates')
+    parser.add_argument('--srf', metavar='<>', type=str,
+                        help='output file for modelled surface over which MEP is calculated')
+    parser.add_argument('--idist', metavar='#', type=float,
+                        help='distance between grid points for surface modelling (def: 0.05)',
+                        default=0.05)
+    parser.add_argument('--span', metavar='#', type=float,
+                        help='smoothing parameter for surface modelling, bigger smoother (def: 0.15)',
+                        default=0.15)
+    parser.add_argument('--nknots', metavar='#', type=int,
+                        help='number of knots for NEB algorithm (def: 150)',
+                        default=150)
+    parser.add_argument('-u', '--units', metavar='U', type=str,
+                        choices=('kj', 'kcal'),
+                        help='output units per mol {kj / kcal} (def: kj)',
+                        default='kj')
+    parser.add_argument('--mep-method', type=str,
+                        choices=('dimer', 'neb'),
+                        help=argparse.SUPPRESS,
+                        default='neb')
+    parser.add_argument('--nofortran', action='store_true',
+                        help=argparse.SUPPRESS)
+    args = parser.parse_args()
+
+    # variable assignation
+    srf_file     = args.surface
+    mep_file     = args.out
+    config_file  = args.f
+    mcoord       = args.coord
+    no_mini      = args.no_mini
+    srf_out_file = args.srf
+    idist        = args.idist
+    span         = args.span
+    nknots       = args.nknots
+    units        = args.units
+    mep_method   = args.mep_method
+    fortran      = not args.nofortran
+
+    ispan        = 0.01  # fine interpolation span
+
+    header = f"""\
+                 SURFACE file: {srf_file}
+                 IDIST: {idist}
+                 SPAN: {span}
+                 N KNOTS: {nknots}
+                 Units: {units}
+                 MEP method: {mep_method}\n
+              """
+
+    sys.stdout.write(f"# MEPPER\n\n{dedent(header)}")
+
+    # read surface
+    srf_data = np.loadtxt(srf_file, dtype=float, comments='#', usecols=(0,1,2))
+
+    # build interpolated model to irregular grid
+    srf_grid = umbrellaint.igrid_gen(idist, srf_data[:, 0:2])
+    srf_grid, srf_z = grid2grid(srf_data[:, 0:2], srf_data[:, 2], srf_grid,
+                                imethod='lowess', fortran=fortran, span=span)
+
+    # convert units
+    if units == 'kcal':
+        srf_z *= J2CAL
+
+    # save modelled surface
+    if srf_out_file is not None:
+        sys.stdout.write(f"Modelled surface file: {srf_out_file}\n\n")
+        srf_out = np.column_stack((srf_grid, srf_z))
+        np.savetxt(srf_out_file, srf_out, fmt='%16.8f ',
+                   header=f"Modelled surface from {srf_file} w/ SPAN={span}")
+
+    ## extremes treatment
+    coord = [[],[]]
+    if mcoord:
+        coord = [[mcoord[0], mcoord[1]], [mcoord[2], mcoord[3]]]
+    elif config_file:
+        config = DynnConfig(config_file)
+        config.resolve_constr(2)
+        coord = [[config.constr[0]['dinit'], config.constr[0]['dend']],
+                 [config.constr[1]['dinit'], config.constr[1]['dend']]]
+    else:
+        # take minimum point and farther point from it
+        coord[0] = srf_grid[np.argmin(srf_z)]
+        grid_dist = (srf_grid[:, 0]-coord[0][0])**2 + (srf_grid[:, 1]-coord[0][1])**2
+        coord[1] = srf_grid[np.argmax(grid_dist), :]
+
+    for i in range(2):
+        # move extremes inside grid
+        coord[i] = mv_inside(coord[i], srf_grid, idist)
+        # minimize extremes
+        if not no_mini:
+            coord[i] = minimize(coord[i], idist, srf_grid, srf_z, method='hc',
+                                step=0.1, max_iter=1e4, span=ispan)[-1]
+
+    ## calculate MEP
+    sys.stdout.write("Searching MEP...\n\n")
+    if mep_method == 'dimer':
+        mep_path = dimer(
+            coord[0], coord[1],
+            idist, srf_grid, srf_z,
+            step=0.02, dimer_d=0.02,
+            imethod='lowess', max_iter=1e3, fortran=fortran,
+            span=ispan
+            )
+    elif mep_method == 'neb':
+        mep_path = neb(
+            coord[0], coord[1],
+            idist, srf_grid, srf_z,
+            mep_guess=None, nknots=nknots,
+            step=0.02, spring=1., rescale=(0.,1.),
+            imethod='lowess', max_iter=1e3, fortran=fortran,
+            span=ispan
+            )
+    else:
+        raise ValueError(f"Unknown MEP method: {mep_method}")
+
+    # smoothing of MEP (just in case)
+    mep_path[:, 0] = smooth_array(mep_path[:, 0], 'sma', neighbours=10, fortran=False)
+    mep_path[:, 1] = smooth_array(mep_path[:, 1], 'sma', neighbours=10, fortran=False)
+
+    # save MEP
+    sys.stdout.write(f"MEP file: {mep_file}\n")
+    mep_z = grid2grid(srf_grid, srf_z, mep_path, fortran=fortran, span=ispan)[1]
+    mep = np.column_stack((mep_path, mep_z))
+    np.savetxt(mep_file, mep, fmt='%16.8f ', header=dedent(header))
