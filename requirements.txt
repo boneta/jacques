@@ -1,4 +1,9 @@
+# JACQUES CORE
 pyyaml
 numpy
 scipy
 git+https://github.com/boneta/UmbrellaIntegrator
+
+# TOOLS
+parmed
+pdb4all
