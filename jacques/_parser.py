@@ -88,8 +88,8 @@ def parser(mode=None):
             p.add_argument('--out', type=str)
 
         #  COMPUTING  -------------------------------------------------
-        h+=" -j | --jobonly                    write jobfile but do not submit\n"
-        p.add_argument('-j', '--jobonly', action='store_true')
+        h+=" --dry                             dry run: prepare but do not submit\n"
+        p.add_argument('--dry', action='store_true')
         h+=" --queue  <str>                    queue to submit\n"
         p.add_argument('--queue', type=str)
         h+=" --cores  <int>                    total number of CPU cores\n"

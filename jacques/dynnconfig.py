@@ -88,7 +88,7 @@ class DynnConfig:
         'dcd_stride', 'int_dcd', 'int_wbox', 'int_ions',
         'kie_atomn', 'kie_skip', 'kie_mass', 'kie_hess',
 
-        'exe', 'queue', 'jobonly', 'post'
+        'exe', 'queue', 'dry', 'post'
         ]
 
     constr_keys = [
@@ -460,7 +460,7 @@ class DynnConfig:
 
         def submit_job(opt, jobfile):
             '''Launch to queues or display job succesfully written message'''
-            if opt['jobonly']:
+            if opt['dry']:
                 sys.stdout.write("Job succesfully written: '{}' \n".format(jobfile))
             else:
                 queues.submit(jobfile, qsys=None)
