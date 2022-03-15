@@ -35,7 +35,7 @@ __version__ = '0.5.2'
 import os
 from copy import deepcopy
 
-from pymol import cmd, importing
+from pymol import cmd, importing, CmdException
 from chempy import atomic_number, Atom
 from chempy.models import Indexed
 from chempy.protein_residues import normal as aa_dict
@@ -120,8 +120,7 @@ class DynnConfigSele():
         """
 
         if not self.selection:
-            print(" DYNAMON: No selection to write")
-            return
+            raise CmdException("No selection to write", "pyDYNAMON")
 
         # build strings for each selection
         sele_str = []
@@ -165,6 +164,10 @@ def write_sele(filename, selection_name='', selection='sele', resolution='atom')
 
     selection_name = selection_name.upper() or selection.upper()
 
+    # check selection exists
+    if not selection in cmd.get_names('selections'):
+        raise CmdException(f"Selection '{selection}' not found", "pyDYNAMON")
+
     # get selection with DynnConfigSele structure
     natoms = 0
     sele = dict()
@@ -190,7 +193,7 @@ def write_sele(filename, selection_name='', selection='sele', resolution='atom')
     dynn.selection[selection_name] = sele
     dynn.write_selection(filename, resolution='atom')
 
-    print(f" DYNAMON: {selection_name} with {natoms} written to \"{os.path.abspath(filename)}\"")
+    print(f" pyDYNAMON: {selection_name} with {natoms} written to \"{os.path.abspath(filename)}\"")
 
 def load_dynn(filename):
     """
@@ -204,16 +207,14 @@ def load_dynn(filename):
 
     # check file exists
     if not os.path.isfile(filename):
-        print(f" DYNAMON: file '{filename}' not found.")
-        return
+        raise CmdException(f"File '{filename}' not found.", "pyDYNAMON")
 
-    print(f" DYNAMON: reading \"{filename}\"")
+    print(f" pyDYNAMON: reading \"{filename}\"")
     dynn = DynnConfigSele()
     dynn.read_selection(filename)
 
     if not dynn.selection:
-        print(" DYNAMON: No selections found in file.")
-        return
+        raise CmdException("No selections to read in file. Aborting.", "pyDYNAMON")
 
     # build selection algebra
     for sele_name, sele in dynn.selection.items():
@@ -235,7 +236,7 @@ def load_dynn(filename):
         # selection command
         cmd.select(sele_name, sele_final, enable=0, quiet=1)
         natoms = cmd.count_atoms(sele_name)
-        print(f" DYNAMON: selection \"{sele_name}\" defined with {natoms} atoms.")
+        print(f" pyDYNAMON: selection \"{sele_name}\" defined with {natoms} atoms.")
 
 def load_ff(filename):
     """
@@ -252,7 +253,7 @@ def load_ff(filename):
             file path
     """
 
-    print(f" DYNAMON: reading \"{filename}\"")
+    print(f" pyDYNAMON: reading \"{filename}\"")
 
     # residue names excluded from re-bonding
     rebond_excluded = []
@@ -362,7 +363,7 @@ def load_crd(filename, object=''):
     cmd.rebond(object)
     cmd.dss(object)
 
-    print(f" DYNAMON: \"{filename}\" loaded as \"{object}\"")
+    print(f" pyDYNAMON: \"{filename}\" loaded as \"{object}\"")
 
 def load_ext(filename, object='', state=0, format='', finish=1,
              discrete=-1, quiet=1, multiplex=None, zoom=-1, partial=0,
