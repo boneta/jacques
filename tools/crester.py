@@ -288,7 +288,7 @@ if __name__ == '__main__':
             # add embedding command
             constr_str += f"$embedding\n    input={basename}.pc\n"
             # write point charges file
-            ref_obj_electr.remove('charge', 0.)     # remove 0 charges
+            ref_obj_electr.remove(charge=0.)     # remove 0 charges
             print(f"Writing point charges -> '{basename}.pc'")
             with open(basename+".pc", "w") as f:
                 # write coordinates

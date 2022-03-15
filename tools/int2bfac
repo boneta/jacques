@@ -68,7 +68,7 @@ for aa in inter:
     except: pass
 
 # clean structure
-for i in ['SOL', 'NA', 'CL']: inpdb.remove('resName', i)
+for i in ['SOL', 'NA', 'CL']: inpdb.remove(resName=i)
 inpdb.clean_field('tempFactor')
 
 # substitue in protein file
