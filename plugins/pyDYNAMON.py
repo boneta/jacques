@@ -27,19 +27,17 @@
 
 """
 
-__version__ = '0.5.1'
-
-# PDB Strict formatting
-# ATOM/HETATM  serial  name   altLoc  resName  chainID  resSeq  iCode  x       y     z      occupancy  tempFactor  segment  element  charge
-# 1-6          7-11    13-16  17      18-20    22       23-26   27     31-38  39-46  47-54  55-60      61-66       73-76    77-78    79-80
+__version__ = '0.5.2'
 
 
 ##  DEPENDENCIES  #####################################################
 
 import os
+from copy import deepcopy
 
 from pymol import cmd, importing
-from chempy import atomic_number
+from chempy import atomic_number, Atom
+from chempy.models import Indexed
 from chempy.protein_residues import normal as aa_dict
 
 
@@ -102,7 +100,7 @@ class DynnConfigSele():
                     elif subsect == "A":
                         sele[segi][resi].append(select)
                     n += 1
-                else:   
+                else:
                     n += 1
                 self.selection[sele_name] = sele
             else:
@@ -194,7 +192,6 @@ def write_sele(filename, selection_name='', selection='sele', resolution='atom')
 
     print(f" DYNAMON: {selection_name} with {natoms} written to \"{os.path.abspath(filename)}\"")
 
-
 def load_dynn(filename):
     """
         Load a DYNAMON selection file and read QM/NOFIX to sele objects
@@ -239,7 +236,6 @@ def load_dynn(filename):
         cmd.select(sele_name, sele_final, enable=0, quiet=1)
         natoms = cmd.count_atoms(sele_name)
         print(f" DYNAMON: selection \"{sele_name}\" defined with {natoms} atoms.")
-
 
 def load_ff(filename):
     """
@@ -319,7 +315,6 @@ def load_ff(filename):
         for bond in top['bonds']:
             cmd.bond(f"resn {resname} & name {bond[0]}", f"resn {resname} & name {bond[1]}")
 
-
 def load_crd(filename, object=''):
     """
         Load a fDynamo coordinates file (.crd)
@@ -342,62 +337,32 @@ def load_crd(filename, object=''):
         crd_file = [line.split("!")[0].split() for line in crd_file
                     if line.strip() and not line.startswith("!")]
 
-    # convert atoms to pdb format
+    # reversed dictionary of atomic numbers to elements
     atomic_number_inv = { n:elem for elem, n in atomic_number.items() }
-    pdb_file = []
-    big_resi = dict()
-    a = { 'ATOM'       : "ATOM",
-          'serial'     : 0,
-          'name'       : "",
-          'altLoc'     : "",
-          'resName'    : "",
-          'chainID'    : "",
-          'resSeq'     : 0,
-          'iCode'      : "",
-          'x'          : 0.0,
-          'y'          : 0.0,
-          'z'          : 0.0,
-          'occupancy'  : 0.0,
-          'tempFactor' : 0.0,
-          'segment'    : "",
-          'element'    : "",
-          'charge'     : "" }
 
+    # create new model and append crd's atoms
+    model = Indexed()
+    a = Atom()
+    a.hetatm  = False
     for line in crd_file:
         if line[0].lower() == "subsystem":
-            a['segment'] = str(line[2])
+            a.segi = str(line[2])
         elif line[0].lower() == "residue":
-            a['resSeq']  = int(line[1])
-            a['resName'] = str(line[2])
+            a.resi_number  = int(line[1])
+            a.resn = str(line[2])
         elif len(line) != 6:
             continue
         else:
-            a['serial']  = int(line[0])
-            a['name']    = str(line[1])
-            a['element'] = atomic_number_inv[int(line[2])]
-            a['x']       = float(line[3])
-            a['y']       = float(line[4])
-            a['z']       = float(line[5])
-            if len(a['name']) == 3: a['name'] = ' '+a['name']     # correct alignment of atom name
-            # format pdb
-            formatted_line = "{:<6s}{:>5d} {:^4s}{:1s}{:>3s} {:1s}{:>4.4}{:1s}   {:>8.3f}{:>8.3f}{:>8.3f}{:>6.2f}{:>6.2f}      {:<4s}{:>2s}{:<2s}\n" \
-                .format(a['ATOM'], a['serial'], a['name'], a['altLoc'], a['resName'], a['chainID'], str(a['resSeq']), a['iCode'],
-                        a['x'], a['y'], a['z'], a['occupancy'], a['tempFactor'], a['segment'], a['element'], a['charge'])
-            # get atom id and resi for overfloating residue numbers (>9999)
-            if a['resSeq'] > 9999:
-                big_resi.setdefault(a['resSeq'], []).append("id "+str(a['serial']))
-            pdb_file.append(formatted_line)
-
-    # load as pdb string
-    pdb_whole = "".join(pdb_file)
-    cmd.read_pdbstr(pdb_whole, object)
-
-    # restore large residue numbers cutted-out by PDB format contraints
-    for resSeq, id_list in big_resi.items():
-        cmd.alter(f"( {' | '.join(id_list)} ) & model {object}", f"resi={resSeq}")
+            a.name   = str(line[1])
+            a.symbol = atomic_number_inv[int(line[2])]
+            a.coord  = ( float(line[3]), float(line[4]), float(line[5]) )
+            model.add_atom(deepcopy(a))
+    model.update_index()
+    cmd.load_model(model, object)
+    cmd.rebond(object)
+    cmd.dss(object)
 
     print(f" DYNAMON: \"{filename}\" loaded as \"{object}\"")
-
 
 def load_ext(filename, object='', state=0, format='', finish=1,
              discrete=-1, quiet=1, multiplex=None, zoom=-1, partial=0,
