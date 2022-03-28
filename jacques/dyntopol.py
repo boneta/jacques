@@ -16,6 +16,7 @@
 import sys
 from copy import deepcopy
 
+
 class DynTopol():
     """
         fDynamo force field topology

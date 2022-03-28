@@ -13,13 +13,13 @@
 
 """
 
-import os
-import sys
-import re
 import glob
-import shutil
 import itertools
 import math as m
+import os
+import re
+import shutil
+import sys
 from textwrap import dedent
 
 try:
@@ -27,6 +27,7 @@ try:
     jacques_import = True
 except ImportError:
     jacques_import = False
+
 
 class DynnConfig:
     '''

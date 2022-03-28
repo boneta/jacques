@@ -12,12 +12,12 @@
 
 """
 
-import sys
 import re
 import subprocess
+import sys
 from textwrap import dedent
 
-from jacques import queues_def, msgf, jobf
+from jacques import jobf, msgf, queues_def
 
 
 ##  Build Queue Parameters  ###########################################

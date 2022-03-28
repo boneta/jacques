@@ -11,12 +11,12 @@
 """
 
 import os
-import sys
 import subprocess
+import sys
 
-from jacques                import queues_def, opt_def, jacques_path, dynamon_path
-from jacques._parser        import parser
-from jacques.dynnconfig     import DynnConfig
+from jacques import dynamon_path, jacques_path, opt_def, queues_def
+from jacques._parser import parser
+from jacques.dynnconfig import DynnConfig
 
 
 def main():

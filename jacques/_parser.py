@@ -14,6 +14,7 @@ import argparse
 
 from jacques import __version__
 
+
 def parser(mode=None):
     '''
         Construct specific parser for a MODE
