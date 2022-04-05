@@ -3,15 +3,14 @@
 
 ## High-level correction of 1D/2D PMFs
 
-import sys
 import argparse
+import sys
 from textwrap import dedent
 
 import numpy as np
 
 from jacques.constants import J2CAL
-from jacques.srf import corr_1D, corr_2D, array2array, grid2grid
-
+from jacques.srf import array2array, corr_1D, corr_2D, grid2grid
 
 if __name__ == '__main__':
 
@@ -72,7 +71,7 @@ if __name__ == '__main__':
         diff_data = np.zeros((0, 3), dtype=float)
         n = 0
         while n < min(pes_data.shape[0], corr_data.shape[0]):
-            if np.int(pes_data[n, 3]) == np.int(corr_data[n, 3]):
+            if int(pes_data[n, 3]) == int(corr_data[n, 3]):
                 diff = corr_data[n, 1] - pes_data[n, 1]
                 diff_data = np.vstack([diff_data, [pes_data[n, 0], diff, pes_data[n, 3]]])
                 n += 1
