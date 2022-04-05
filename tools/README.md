@@ -9,12 +9,6 @@
   crester.py            Prepare/process structures to/from CREST
 ```
 
-### Corrections
-```
-  correct-1D            SPLINE corrections in 1D
-  correct-2D            SPLINE corrections in 2D
-```
-
 ### Interactions
 ```
   int-postprocess       Post-processing routine after interactions calculation
