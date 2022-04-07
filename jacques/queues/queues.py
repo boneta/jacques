@@ -19,8 +19,9 @@ from textwrap import dedent
 
 from jacques import jobf, msgf, queues_def
 
+from . import queue_templates
 
-##  Build Queue Parameters  ###########################################
+
 def param(name, queue=None, cores=1, memory='4000MB', memory_plus='1000MB',
           nodes=1, queues_def=queues_def, msgf=msgf, jobf=None):
     '''
@@ -65,35 +66,28 @@ def param(name, queue=None, cores=1, memory='4000MB', memory_plus='1000MB',
     memory_final = "{}MB".format(round(_conv_mem(memory,'MB')+_conv_mem(memory_plus,'MB')))
 
     # Sun Grid Engine
-    sge   = """
-            #$ -N {name}
-            #$ -e {msgf}/{name}.msg
-            #$ -o {msgf}/{name}.msg
-            #$ -q {queue}
-            #$ -R yes
-            """.format(name=name, queue=queue_sge, msgf=msgf)
-    if cores != 1: sge = sge + "#$ -pe mp{cores} {cores}\n".format(cores=cores)
+    sge = queue_templates['SGE'].format(name=name,
+                                        queue=queue_sge,
+                                        msgf=msgf,
+                                        cores=cores)
+    if cores == 1:
+        sge = sge.replace('#$ -pe mp1 1\n', '')
 
     # SLURM
-    slurm = """
-            #SBATCH -J {name}
-            #SBATCH -e {msgf}/{name}.msg
-            #SBATCH -o {msgf}/{name}.msg
-            #SBATCH -p {queue}
-            #SBATCH -N {nodes}
-            #SBATCH --ntasks-per-node={cores}
-            #SBATCH --mem={memory}
-            """.format(name=name, queue=queue_slurm, msgf=msgf,
-                       nodes=nodes, cores=cores, memory=memory_final)
+    slurm = queue_templates['SLURM'].format(name=name,
+                                            queue=queue_slurm,
+                                            msgf=msgf,
+                                            nodes=nodes,
+                                            cores=cores,
+                                            memory=memory_final)
 
     # move job file
     mvjob = "\nmv $0 {}\n".format(jobf) if jobf is not None else "\n"
 
-    queue_param = "#!/bin/bash\n" + dedent(sge) + dedent(slurm) + mvjob
+    queue_param = "#!/bin/bash\n\n" + dedent(sge) + "\n"+ dedent(slurm) + "\n" + mvjob
 
     return queue_param
 
-##  Submit to queue  ##################################################
 def submit(jobfile, qsys=None):
     '''
         Submit a job file to the queue system
@@ -122,7 +116,6 @@ def submit(jobfile, qsys=None):
                 sys.stdout.write("ERROR: Problems with the queue system. "+
                                  "Job could not be launched '{}'\n".format(jobfile))
 
-##  Convert RAM memory format  ########################################
 def _conv_mem(memory, out_units='MB'):
     '''
         Convert between RAM memory formats
