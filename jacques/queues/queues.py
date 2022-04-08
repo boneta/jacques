@@ -19,7 +19,7 @@ from textwrap import dedent
 
 from jacques import jobf, msgf, queues_def
 
-from . import queue_templates
+from . import submit_exe, queue_templates
 
 
 def param(name, queue=None, cores=1, memory='4000MB', memory_plus='1000MB',
@@ -88,7 +88,7 @@ def param(name, queue=None, cores=1, memory='4000MB', memory_plus='1000MB',
 
     return queue_param
 
-def submit(jobfile, qsys=None):
+def submit(jobfile, submit_exe=submit_exe):
     '''
         Submit a job file to the queue system
 
@@ -96,25 +96,16 @@ def submit(jobfile, qsys=None):
         ----------
         jobfile : str
             name of the job file
-        qsys : {None, 'sge', 'slurm'}, optional
-            queue system, with None all are tried
+        submit_exe : str, optional
+            name of the submitter executable (i.e. sbatch/qsub)
+            if None, a message is shown and not submitted
+            if omitted is guessed from the environment
     '''
-    #TODO: Robust detection of sge/slurm. 'shutil.which'?
 
-    if qsys is not None:
-        if qsys.lower() == 'sge':
-            subprocess.call(['qsub', jobfile])
-        elif qsys.lower() == 'slurm':
-            subprocess.call(['sbatch', jobfile])
+    if submit_exe is not None:
+        subprocess.call([submit_exe, jobfile])
     else:
-        try:
-            subprocess.call(['qsub', jobfile])
-        except FileNotFoundError:
-            try:
-                subprocess.call(['sbatch', jobfile])
-            except FileNotFoundError:
-                sys.stdout.write("ERROR: Problems with the queue system. "+
-                                 "Job could not be launched '{}'\n".format(jobfile))
+        sys.stdout.write(f"ERROR: No queue system detected. Job '{jobfile}' not submitted\n")
 
 def _conv_mem(memory, out_units='MB'):
     '''

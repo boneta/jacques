@@ -464,7 +464,7 @@ class DynnConfig:
             if opt['dry']:
                 sys.stdout.write("Job succesfully written: '{}' \n".format(jobfile))
             else:
-                queues.submit(jobfile, qsys=None)
+                queues.submit(jobfile)
 
         # single structure calculations -----------------------------------
         if mode in ('sp', 'mini', 'locate', 'md', 'interaction', 'kie'):
