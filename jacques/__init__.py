@@ -34,9 +34,6 @@ try:
 except:
     sys.exit("ERROR: Problems reading 'settings.yaml' file")
 
-# default queues names
-queues_def = settings['queues']
-
 # default options
 opt_def = settings['options']
 

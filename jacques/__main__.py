@@ -14,7 +14,7 @@ import os
 import subprocess
 import sys
 
-from jacques import dynamon_path, jacques_path, opt_def, queues_def
+from jacques import dynamon_path, jacques_path, opt_def
 from jacques._parser import parser
 from jacques.dynnconfig import DynnConfig
 

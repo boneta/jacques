@@ -23,7 +23,7 @@ import sys
 from textwrap import dedent
 
 try:
-    import jacques.queues as queues
+    from jacques.queues import JobFile
     jacques_import = True
 except ImportError:
     jacques_import = False
@@ -150,8 +150,13 @@ class DynnConfig:
             return self.mode.upper()
 
     @property
+    def dynn(self):
+        '''Dynamon configuration file name (.dynn)'''
+        return self.name + '.dynn'
+
+    @property
     def out(self):
-        '''Output file with distances and energies'''
+        '''Output file with distances and energies (.out)'''
         if self.opt['out'] is not None:
             return self.opt['out']
         else:
@@ -452,34 +457,16 @@ class DynnConfig:
         if self.opt['sys'] is None and self.opt['bin'] is None and self.opt['sele'] is None:
             sys.exit("ERROR: Missing topology {SYS,BIN,SELE}")
 
-        mode   = self.mode
-        name   = self.name
-        out    = self.out
-        opt    = self.opt
-        constr = self.constr
-        exe    = opt['exe']
-
-        def submit_job(opt, jobfile):
-            '''Launch to queues or display job succesfully written message'''
-            if opt['dry']:
-                sys.stdout.write("Job succesfully written: '{}' \n".format(jobfile))
-            else:
-                queues.submit(jobfile)
+        mode = self.mode
 
         # single structure calculations -----------------------------------
         if mode in ('sp', 'mini', 'locate', 'md', 'interaction', 'kie'):
-            dynnfile = name + '.dynn'
-            jobfile  = name + '.job'
-            queue_param = queues.param(name, queue=opt['queue'], cores=opt['cores'], memory=opt['memory'])
-            self.write(dynnfile, (mode not in ('locate')))    # no constraints for loc
-            with open(jobfile, 'w') as jobf:
-                jobf.write(queue_param)
-                jobf.write("cd {}\n".format(os.getcwd()))
-                jobf.write("{} {} > {}\n".format(exe, dynnfile, name+'.log'))
-            submit_job(opt,jobfile)
+            self.write(self.dynn, (mode not in ('locate')))    # no constraints for loc
+            routine = f"{self.opt['exe']} {self.dynn} > {self.name}.log\n"
 
         # IRC -------------------------------------------------------------
         elif mode == 'irc':
+            raise NotImplementedError("IRC mode not implemented yet")
             # check direction
             if opt['irc_dir'] in (None, 0): directions = [-1,1]
             else : directions = [opt['irc_dir']]
@@ -490,7 +477,7 @@ class DynnConfig:
                 # naming
                 if dir == 1: name_irc = name + '-for'
                 elif dir == -1: name_irc = name + '-back'
-                dynnfile = name_irc + '.dynn'
+                self.dynn = name_irc + '.dynn'
                 jobfile  = name_irc + '.job'
                 queue_param = queues.param(name_irc, queue=opt['queue'], cores=opt['cores'], memory=opt['memory'])
                 # create folder, check if hessian and move there
@@ -499,11 +486,11 @@ class DynnConfig:
                 if os.path.isfile("update.dump"): shutil.copy("update.dump",name_irc+"/")
                 os.chdir(name_irc)
                 # write job, dynn and launch
-                self.write(dynnfile, True)
+                self.write(self.dynn, True)
                 with open(jobfile, 'w') as jobf:
                     jobf.write(queue_param)
                     jobf.write("cd {}\n".format(os.getcwd()))
-                    jobf.write("{} {} > {}\n".format(exe, dynnfile, name_irc+'.log'))
+                    jobf.write("{} {} > {}\n".format(exe, self.dynn, name_irc+'.log'))
                 submit_job(opt,jobfile)
                 # return to workdir
                 os.chdir("..")
@@ -511,13 +498,9 @@ class DynnConfig:
         # POTENTIAL -------------------------------------------------------
         elif mode == 'scan':
             self.resolve_constr()
-            dynnfile = name + '.dynn'
-            jobfile  = name + '.job'
-            queue_param = queues.param(name, queue=opt['queue'], cores=opt['cores'], memory=opt['memory'])
-            self.write(dynnfile, True)
+            self.write(self.dynn, True)
             routine = """
-                      cd {pwd}\n
-                      for i in $(seq 0 {n}); do
+                      for i in {{0..{n}}}; do
                         if [ $i == 0 ]; then
                           {exe} {dynnfile} --OUT {out} --NAME {name}.$i --N $i > {name}.$i.log
                         else
@@ -525,24 +508,25 @@ class DynnConfig:
                         fi
                         il=$i
                       done
-                      """.format(pwd=os.getcwd(), n=constr[0]['n'], exe=exe, dynnfile=dynnfile, name=name, out=out)
-            with open(jobfile, 'w') as jobf:
-                jobf.write(queue_param)
-                jobf.write(dedent(routine))
-            submit_job(opt,jobfile)
+                      """.format(n=self.constr[0]['n'],
+                                 exe=self.opt['exe'],
+                                 dynnfile=self.dynn,
+                                 name=self.name,
+                                 out=self.out)
 
         elif mode == 'pes':
+            raise NotImplementedError("PES mode not implemented yet")
             self.resolve_constr()
-            dynnfile = name + '.dynn'
-            self.write(dynnfile, True)
+            self.dynn = self.name + '.dynn'
+            self.write(self.dynn, True)
             # first constraint preference
-            for i in range(0, int(constr[0]['n'])+1):
-                name_pes = "{}.{}".format(name, i)
-                jobfile  = name_pes + '.job'
-                jobn     = "{}.{}.job".format(name, i+1)
-                queue_param = queues.param(name_pes, queue=opt['queue'], cores=opt['cores'], memory=opt['memory'])
-                if i==0: coord0 = opt['coord']
-                else: coord0 = "{}.{}.$j.crd".format(name, i-1)
+            for i in range(0, int(self.constr[0]['n'])+1):
+                name_pes = f"{self.name}.{i}"
+                name_pes_next = f"{self.name}.{i+1}.job"
+                if i==0:
+                    coord0 = self.opt['coord']
+                else:
+                    coord0 = "{}.{}.$j.crd".format(name, i-1)
                 routine = """
                           cd {pwd}\n
                           for j in $(seq 0 {n}); do
@@ -555,18 +539,21 @@ class DynnConfig:
                             fi
                             jl=$j
                           done
-                          """.format(pwd=os.getcwd(), n=constr[1]['n'], exe=exe,
-                                     dynnfile=dynnfile, name=name, out=out.split(".out")[0], i=i, jobn=jobn, coord0=coord0)
+                          """.format(pwd=os.getcwd(), n=self.constr[1]['n'], exe=exe,
+                                     dynnfile=self.dynn, name=name, out=out.split(".out")[0], i=i, jobn=jobn, coord0=coord0)
                 with open(jobfile, 'w') as jobf:
                     jobf.write(queue_param)
                     jobf.write(dedent(routine))
             submit_job(opt, name+".0.job")
+            jobfile.__init__(dedent(routine), **self.opt)
+            jobfile.submit(self.opt['dry'])
 
         # FREE ENERGY / CORRECTION ------------------------------------
         elif mode in ('pmf', 'corr'):
+            raise NotImplementedError("PMF/CORR mode not implemented yet")
             self.resolve_constr(self.dim)
-            dynnfile = name + '.dynn'
-            self.write(dynnfile, True)
+            self.dynn = name + '.dynn'
+            self.write(self.dynn, True)
             # create jobs folder
             shutil.rmtree("jobs", ignore_errors=True)
             os.mkdir("jobs")
@@ -593,13 +580,13 @@ class DynnConfig:
                     routine = """
                               cd {pwd}\n
                               {exe} {dynnfile} --NAME {name}.{numd} --N {nums} --COORD {crd} > {name}.{numd}.log\n
-                              """.format(pwd=os.getcwd(), exe=exe, dynnfile=dynnfile, name=name, numd=numd, nums=nums, crd=crd)
+                              """.format(pwd=os.getcwd(), exe=exe, dynnfile=self.dynn, name=name, numd=numd, nums=nums, crd=crd)
                 elif mode == 'corr':
                     routine = """
                               mkdir {pwd}/{name}.{numd}
                               cd {pwd}/{name}.{numd}\n
                               {exe} ../{dynnfile} --OUT ../{out} --NAME {name}.{numd} --N {nums} --COORD ../{crd} > {name}.{numd}.log\n
-                              """.format(pwd=os.getcwd(), exe=exe, dynnfile=dynnfile, name=name, out=out, numd=numd, nums=nums, crd=crd)
+                              """.format(pwd=os.getcwd(), exe=exe, dynnfile=self.dynn, name=name, out=out, numd=numd, nums=nums, crd=crd)
                 with open(os.path.join("jobs", jobfile), 'w') as jobf:
                     jobf.write(queue_param)
                     jobf.write(dedent(routine))
@@ -627,6 +614,9 @@ class DynnConfig:
         # UNKNOWN ---------------------------------------------------------
         else:
             sys.exit(f"ERROR: Unkown mode '{mode}'")
+
+        jobfile = JobFile(dedent(routine), **self.opt)
+        jobfile.submit(self.opt['dry'])
 
     def post(self, rm=True):
         '''
