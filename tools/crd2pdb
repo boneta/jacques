@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 
 # Description: Convert structures from dynamo's crd to pdb
-# Last update: 23-03-2022
+# Last update: 11-04-2022
 
 import argparse
-import os
+import os.path
 
 from pdb4all import PDB
 
-parser = argparse.ArgumentParser(prog='pdb2crd',
+parser = argparse.ArgumentParser(prog='crd2pdb',
                                  description='Convert structures from dynamo\'s crd',
                                  formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument('infile', metavar='.crd', type=str, nargs='+', default=[],
                     help='input crd file, can be multiple')
 parser.add_argument('-o', '--out', metavar='.pdb', type=str, default='', required=False,
-                    help='output pdb file, if multiple input files this option is ignored')
+                    help='output pdb file, if multiple input files this option is ignored\n'+
+                         'if not specified or multiple, is named as input file with .pdb extension')
 args = parser.parse_args()
 
 m = PDB()
@@ -22,6 +23,6 @@ for infile in args.infile:
     m.__init__()
     m.read(infile)
     basein, extin = os.path.splitext(infile)
-    outfile = args.out if args.out and len(args.infile) == 1 else basein + '.crd'
+    outfile = args.out if args.out and len(args.infile) == 1 else basein + '.pdb'
     m.write(outfile)
     print(f"{infile} -> {outfile}")
