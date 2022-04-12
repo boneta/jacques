@@ -133,6 +133,46 @@ class DynnConfig:
         if file is not None:
             self.read_file(file)
 
+    def __str__(self) -> str:
+        '''String formatted representation of the configuration file (.dynn)'''
+        #FIXME: Make dynn writing more general
+        # accumulate to string
+        s = ""
+        # mode
+        if self.mode is not None:
+            s += f"{'MODE':<20} {self.mode.upper()}\n\n"
+        # general options
+        for option in self.opt_keys[1:-4]:
+            if self.opt[option] is not None:
+                o = self.opt[option]
+                o = f"\"{o}\"" if type(o) == str and any(i in o for i in ["/", ","]) else o
+                s += f"{option.upper():<20} {o}\n"
+        # atoms
+        s += "\n"
+        for a in self.atoms:
+            s += f"{'ATOM':<20} {a}\n"
+        # constraints
+        for c in self.constr:
+            s += f"\n{'CONSTR':<20} {self._swap_constrtype(c['type'])}\n"
+            for option in self.constr_keys[1:]:
+                if c[option] is not None:
+                    o = c[option]
+                    o = f"\"{o}\"" if type(o) == str and "/" in o else o
+                    s += f"  {option.upper():<18} {o}\n"
+            s += "C\n"
+        # selections
+        for sele_name, sele in self.selection.items():
+            s += f"\nSELECTION {sele_name}\n"
+            for segi, resis in sele.items():
+                s += " "*4+f"S {segi}\n"
+                for resi, atoms in resis.items():
+                    s += " "*8+f"R {resi}\n"
+                    for name in atoms:
+                        s += " "*12+f"A {name}\n"
+            s += "SELECTION\n"
+        # return final string
+        return s
+
     @property
     def mode(self):
         '''Calculation mode'''
@@ -256,70 +296,19 @@ class DynnConfig:
             elif option in self.opt_keys:
                 self.opt[option] = value
 
-    def write(self, file=None, constr=True):   #FIXME: Make writing more general
+    def write_dynn(self, file=None):
         '''
-            Write formatted options
+            Write formatted options to file (.dynn)
 
             Parameters
             ----------
-            file : str
-                file write (.dynn)
-                if None, print to the screen
-            constr : logical
-                write constraints secctions
+            file : str, optional
+                file name to be written
+                if None, the default is used based on name/mode
         '''
-
-        # accumulate to string and write at the end
-        s = ""
-
-        # mode
-        if self.mode is not None:
-            s += "{:<20} {}\n\n".format("MODE", self.mode.upper())
-        else:
-            sys.stdout.write("WARNING: 'MODE' parameter not specified\n")
-
-        # general options
-        for option in self.opt_keys[1:-4]:
-            if self.opt[option] is not None:
-                if type(self.opt[option])==str and ("/" in self.opt[option] or "," in self.opt[option]):
-                    s += "{:<20} \"{}\"\n".format(option.upper(),self.opt[option])
-                else:
-                    s += "{:<20} {}\n".format(option.upper(),self.opt[option])
-        # atoms
-        s += "\n"
-        for a in self.atoms:
-            s += "{:<20} {}\n".format("ATOM", a)
-
-        # constraints
-        if constr:
-            for c in self.constr:
-                s += "\n"
-                s += "{:<20} {}\n".format("CONSTR", self._swap_constrtype(c['type']))
-                for option in self.constr_keys[1:]:
-                    if c[option] is not None:
-                        if type(c[option])==str and "/" in c[option]:
-                            s += "  {:<18} \"{}\"\n".format(option.upper(),c[option])
-                        else:
-                            s += "  {:<18} {}\n".format(option.upper(),c[option])
-                s += "C\n"
-
-        # selections
-        for sele_name, sele in self.selection.items():
-            s += f"\nSELECTION {sele_name}\n"
-            for segi, resis in sele.items():
-                s += " "*4+f"S {segi}\n"
-                for resi, atoms in resis.items():
-                    s += " "*8+f"R {resi}\n"
-                    for name in atoms:
-                        s += " "*12+f"A {name}\n"
-            s += "SELECTION\n"
-
-        # final writing
-        if file is None:
-            sys.stdout.write(s)
-        else:
-            with open(file, 'w') as f:
-                f.write(s)
+        file = file or self.dynn
+        with open(file, 'wt') as f:
+            f.write(str(self))
 
     def def_opt(self, mode, opt_settings):
         '''
@@ -461,7 +450,9 @@ class DynnConfig:
 
         # single structure calculations -----------------------------------
         if mode in ('sp', 'mini', 'locate', 'md', 'interaction', 'kie'):
-            self.write(self.dynn, (mode not in ('locate')))    # no constraints for loc
+            if mode == 'locate':    # no constraints for locate
+                self.constr = []
+            self.write_dynn()    
             routine = f"{self.opt['exe']} {self.dynn} > {self.name}.log\n"
 
         # IRC -------------------------------------------------------------
@@ -498,7 +489,7 @@ class DynnConfig:
         # POTENTIAL -------------------------------------------------------
         elif mode == 'scan':
             self.resolve_constr()
-            self.write(self.dynn, True)
+            self.write_dynn()
             routine = """
                       for i in {{0..{n}}}; do
                         if [ $i == 0 ]; then
