@@ -149,6 +149,9 @@ class DynnConfig:
         # mode
         if self.mode is not None:
             s += f"{'MODE':<20} {self.mode.upper()}\n\n"
+        # properties
+        self.opt['name'] = self.name
+        self.opt['out']  = self.out
         # general options
         for option in self.opt_keys[1:-4]:
             if self.opt[option] is not None:
