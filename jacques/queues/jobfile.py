@@ -123,7 +123,7 @@ class JobFile:
                                    .replace('#$ -t 1-1\n', '') \
                                    .replace('#SBATCH --array=1-1\n', '')
         # combined text
-        return f"#!/bin/bash\n\n{queue_text}\n\n{self.commands}\n"
+        return f"#!/bin/bash\n\n{queue_text}\n{self.commands}\n"
 
     def write(self) -> None:
         """Write to a file (.job)"""
@@ -143,6 +143,7 @@ class JobFile:
         self.write()
         if not dry:
             self.qmanager.submit(self.filename)
+            sys.stdout.write(f"Jobfile submitted: {self.filename}\n")
         else:
             sys.stdout.write(f"Jobfile written: {self.filename}\n")
 
