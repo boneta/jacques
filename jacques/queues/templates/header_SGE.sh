@@ -5,3 +5,6 @@
 #$ -pe mp{cores} {cores}
 #$ -R yes
 #$ -cwd
+#$ -t {array_first}-{array_last}
+
+ID=$SGE_TASK_ID

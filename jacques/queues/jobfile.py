@@ -48,6 +48,7 @@ class JobFile:
             formatted sring of commands to be executed as job
         opt : dict
             additional queue parameters
+            name, queue, cores, memory, memory_plus, nodes, array_first, array_last, msgf, jobf
 
         Methods
         -------
@@ -64,7 +65,8 @@ class JobFile:
         'memory': '4000MB',
         'memory_plus': '1000MB',
         'nodes': 1,
-        'array': [],
+        'array_first': 1,
+        'array_last': 1,
         'msgf': msgf,
         'jobf': None
         }
@@ -82,14 +84,14 @@ class JobFile:
                 by default it will be guessed from the system PATH
             kwargs : dict, optional
                 additional queue parameters:
-                name, queue, cores, memory, memory_plus, nodes, msgf, jobf
+                name, queue, cores, memory, memory_plus, nodes, array_first, array_last, msgf, jobf
         """
         self.commands = commands
         self.qmanager = QueueManager(queue_manager)
         self.opt = deepcopy(self.opt_def)
         self.opt['queue'] = self.qmanager.queue_def
         for key, value in self.opt.items():
-            self.opt[key] = kwargs.get(key, value)
+            self.opt[key] = kwargs.get(key, value) or value
 
     @property
     def name(self) -> str:
@@ -116,7 +118,10 @@ class JobFile:
         queue_text = ""
         if self.qmanager:
             queue_text = self.qmanager.template.format(**opt)
-            queue_text = queue_text.replace('#$ -pe mp1 1\n', '')     # remove parallel environment for one core in SGE
+            # remove parallel environment for one core in SGE and array if only one job
+            queue_text = queue_text.replace('#$ -pe mp1 1\n', '') \
+                                   .replace('#$ -t 1-1\n', '') \
+                                   .replace('#SBATCH --array=1-1\n', '')
         # combined text
         return f"#!/bin/bash\n\n{queue_text}\n\n{self.commands}\n"
 
@@ -128,7 +133,7 @@ class JobFile:
     def submit(self, dry=False) -> None:
         """
             Write and submit the job file to the queue manager
-            
+
             Parameters
             ----------
             dry : bool, optional
