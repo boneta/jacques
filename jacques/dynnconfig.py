@@ -20,6 +20,7 @@ import os
 import re
 import shutil
 import sys
+from copy import deepcopy
 from textwrap import dedent
 
 try:
@@ -447,13 +448,15 @@ class DynnConfig:
             sys.exit("ERROR: Missing topology {SYS,BIN,SELE}")
 
         mode = self.mode
+        opt = deepcopy(self.opt)
+        constr = deepcopy(self.constr)
 
         # single structure calculations -----------------------------------
         if mode in ('sp', 'mini', 'locate', 'md', 'interaction', 'kie'):
             if mode == 'locate':    # no constraints for locate
-                self.constr = []
-            self.write_dynn()    
-            routine = f"{self.opt['exe']} {self.dynn} > {self.name}.log\n"
+                constr = []
+            self.write_dynn()
+            routine = f"{opt['exe']} {self.dynn} > {self.name}.log\n"
 
         # IRC -------------------------------------------------------------
         elif mode == 'irc':
@@ -491,53 +494,37 @@ class DynnConfig:
             self.resolve_constr()
             self.write_dynn()
             routine = """
+                      coord={coord0}
                       for i in {{0..{n}}}; do
-                        if [ $i == 0 ]; then
-                          {exe} {dynnfile} --OUT {out} --NAME {name}.$i --N $i > {name}.$i.log
-                        else
-                          {exe} {dynnfile} --OUT {out} --NAME {name}.$i --N $i --COORD {name}.$il.crd > {name}.$i.log
-                        fi
-                        il=$i
+                          {exe} {dynnfile} --NAME {name}.$i --N $i --COORD $coord >> {name}.log
+                          coord={name}.$i.crd
                       done
-                      """.format(n=self.constr[0]['n'],
-                                 exe=self.opt['exe'],
+                      """.format(name=self.name,
                                  dynnfile=self.dynn,
-                                 name=self.name,
-                                 out=self.out)
+                                 exe=opt['exe'],
+                                 coord0=opt['coord'],
+                                 n=constr[0]['n'])
 
         elif mode == 'pes':
-            raise NotImplementedError("PES mode not implemented yet")
             self.resolve_constr()
-            self.dynn = self.name + '.dynn'
-            self.write(self.dynn, True)
-            # first constraint preference
-            for i in range(0, int(self.constr[0]['n'])+1):
-                name_pes = f"{self.name}.{i}"
-                name_pes_next = f"{self.name}.{i+1}.job"
-                if i==0:
-                    coord0 = self.opt['coord']
-                else:
-                    coord0 = "{}.{}.$j.crd".format(name, i-1)
-                routine = """
-                          cd {pwd}\n
-                          for j in $(seq 0 {n}); do
-                            if [ $j == 0 ]; then
-                              {exe} {dynnfile} --OUT {out}.{i}.out --NAME {name}.{i}.$j --N {i} $j --COORD {coord0} > {name}.{i}.$j.log
-                              {{ qsub   {jobn} ; }} 2>/dev/null
-                              {{ sbatch {jobn} ; }} 2>/dev/null
-                            else
-                              {exe} {dynnfile} --OUT {out}.{i}.out --NAME {name}.{i}.$j --N {i} $j --COORD {name}.{i}.$jl.crd > {name}.{i}.$j.log
-                            fi
-                            jl=$j
-                          done
-                          """.format(pwd=os.getcwd(), n=self.constr[1]['n'], exe=exe,
-                                     dynnfile=self.dynn, name=name, out=out.split(".out")[0], i=i, jobn=jobn, coord0=coord0)
-                with open(jobfile, 'w') as jobf:
-                    jobf.write(queue_param)
-                    jobf.write(dedent(routine))
-            submit_job(opt, name+".0.job")
-            jobfile.__init__(dedent(routine), **self.opt)
-            jobfile.submit(self.opt['dry'])
+            self.write_dynn()
+            opt['array_first'] = 0
+            opt['array_last'] = constr[0]['n']
+            routine = """
+                      if [ $ID -eq 0 ]; then
+                          coord={coord0}
+                      else
+                          coord={name}.$(($ID-1)).0.crd
+                      fi
+                      for j in {{0..{n}}}; do
+                          {exe} {dynnfile} --NAME {name}.$ID.$j --N $ID $j --COORD {coord} >> {name}.$ID.log
+                          coord={name}.$ID.$j.crd
+                      done
+                      """.format(name=self.name,
+                                 dynnfile=self.dynn,
+                                 exe=opt['exe'],
+                                 coord0=opt['coord'],
+                                 n=constr[1]['n'])
 
         # FREE ENERGY / CORRECTION ------------------------------------
         elif mode in ('pmf', 'corr'):
