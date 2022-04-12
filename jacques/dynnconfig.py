@@ -31,8 +31,13 @@ except ImportError:
 
 
 class DynnConfig:
-    '''
+    """
         DYNAMON configuration class
+
+        Parameters
+        ----------
+        file : str, optional
+            read options from file (.dynn/.jcq)
 
         Attributes
         ----------
@@ -50,6 +55,10 @@ class DynnConfig:
             calculation mode
         name : str
             calculation name
+        dynn : str
+            DYNAMON configuration file name (.dynn)
+        out : str
+            output file with distances and energies (.out)
         nconstr : int
             number of defined constraints
         npoints : int
@@ -57,23 +66,21 @@ class DynnConfig:
 
         Methods
         -------
-        __init__(file)
-            Initialization of empty lists and None dictionaries
         read_file(file)
             read options from DYNAMON formatted file
-        write(file, constr)
-            write formatted options to screen or file
+        read_opt(**kwargs)
+            read options from a dictionary / labelled values
+        write_dynn(file)
+            write formatted options to file (.dynn)
         def_opt(mode, options_set)
             assign default options for a specific mode
         resolve_constr(n_constr, step)
             Resolve the iteration parameters for the first n constraint
-        guess_exe_bin(dynamon_path)
-            guess either executable or binary from the other
         launch()
             launch the calculation to the queue system
         post(rm)
             post-process routine after a calculation
-    '''
+    """
 
     opt_keys = [
         'mode',
@@ -123,7 +130,7 @@ class DynnConfig:
             Parameters
             ----------
             file : str, optional
-                read options from file
+                read options from file (.dynn/.jcq)
         '''
 
         self.opt    = self.opt_empty.copy()
@@ -192,7 +199,7 @@ class DynnConfig:
 
     @property
     def dynn(self):
-        '''Dynamon configuration file name (.dynn)'''
+        '''DYNAMON configuration file name (.dynn)'''
         return self.name + '.dynn'
 
     @property
@@ -283,19 +290,15 @@ class DynnConfig:
             n += 1
 
     def read_opt(self, **kwargs):
-        '''
-            Read options from a dictionary / labelled values
-        '''
-
+        '''Read options from a dictionary / labelled values'''
+        # read configuration file first
+        if 'f' in kwargs:
+            self.read_file(kwargs['f'])
         for option, value in kwargs.items():
-            if not value:
-                continue
-            elif option in ('f', 'file'):
-                self.read_file(value)
-            elif option == 'dim':
+            if option == 'dim':
                 self.dim = value
             elif option in self.opt_keys:
-                self.opt[option] = value
+                self.opt[option] = value or self.opt[option]
 
     def write_dynn(self, file=None):
         '''
@@ -358,16 +361,15 @@ class DynnConfig:
 
             Parameters
             ----------
-            n_constr : int
-                number of constraints to resolve, 'None' for all
-            step : float
-                default step lenght if not found
+            n_constr : int, optional
+                number of constraints to resolve, default 'None' for all
+            step : float, optional
+                default step lenght if not found (def: 0.05)
         '''
 
         # check number of constraints
-        if not n_constr:
-            n_constr = self.nconstr
-        elif n_constr > self.nconstr:
+        n_constr = n_constr or self.nconstr
+        if n_constr > self.nconstr:
             raise ValueError(f"More contraints requested to resolve ({n_constr}) than defined ({self.nconstr})")
 
         types_dict = {'dinit':float, 'dend':float, 'step':float, 'n':int}
@@ -449,12 +451,11 @@ class DynnConfig:
 
         mode = self.mode
         opt = deepcopy(self.opt)
-        constr = deepcopy(self.constr)
 
         # single structure calculations -----------------------------------
         if mode in ('sp', 'mini', 'locate', 'md', 'interaction', 'kie'):
             if mode == 'locate':    # no constraints for locate
-                constr = []
+                self.constr = []
             self.write_dynn()
             routine = f"{opt['exe']} {self.dynn} > {self.name}.log\n"
 
@@ -503,13 +504,13 @@ class DynnConfig:
                                  dynnfile=self.dynn,
                                  exe=opt['exe'],
                                  coord0=opt['coord'],
-                                 n=constr[0]['n'])
+                                 n=self.constr[0]['n'])
 
         elif mode == 'pes':
             self.resolve_constr()
             self.write_dynn()
             opt['array_first'] = 0
-            opt['array_last'] = constr[0]['n']
+            opt['array_last'] = self.constr[0]['n']
             routine = """
                       if [ $ID -eq 0 ]; then
                           coord={coord0}
@@ -524,7 +525,7 @@ class DynnConfig:
                                  dynnfile=self.dynn,
                                  exe=opt['exe'],
                                  coord0=opt['coord'],
-                                 n=constr[1]['n'])
+                                 n=self.constr[1]['n'])
 
         # FREE ENERGY / CORRECTION ------------------------------------
         elif mode in ('pmf', 'corr'):
