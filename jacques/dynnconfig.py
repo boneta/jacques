@@ -464,34 +464,32 @@ class DynnConfig:
 
         # IRC -------------------------------------------------------------
         elif mode == 'irc':
-            raise NotImplementedError("IRC mode not implemented yet")
-            # check direction
-            if opt['irc_dir'] in (None, 0): directions = [-1,1]
-            else : directions = [opt['irc_dir']]
-            opt['coord'] = "../"+opt['coord']
-            # loop through every direction
-            for dir in directions:
-                opt['irc_dir'] = dir
-                # naming
-                if dir == 1: name_irc = name + '-for'
-                elif dir == -1: name_irc = name + '-back'
-                self.dynn = name_irc + '.dynn'
-                jobfile  = name_irc + '.job'
-                queue_param = queues.param(name_irc, queue=opt['queue'], cores=opt['cores'], memory=opt['memory'])
-                # create folder, check if hessian and move there
-                shutil.rmtree(name_irc, ignore_errors=True)
-                os.makedirs(name_irc)
-                if os.path.isfile("update.dump"): shutil.copy("update.dump",name_irc+"/")
-                os.chdir(name_irc)
-                # write job, dynn and launch
-                self.write(self.dynn, True)
-                with open(jobfile, 'w') as jobf:
-                    jobf.write(queue_param)
-                    jobf.write("cd {}\n".format(os.getcwd()))
-                    jobf.write("{} {} > {}\n".format(exe, self.dynn, name_irc+'.log'))
-                submit_job(opt,jobfile)
-                # return to workdir
-                os.chdir("..")
+            # both directions (0)
+            if self.opt['irc_dir'] in (None, 0, '0'):
+                self.irc_both_dir = True
+                self.opt['coord'] = f"../{self.opt['coord']}"
+                self.opt['out'] = f"../{self.out}"
+                self.write_dynn()
+                name = self.name
+                self.dynn0 = self.dynn
+                for dir in [-1, 1]:
+                    self.opt['irc_dir'] = dir
+                    self.opt['name'] = f"{name}-BACK" if dir == -1 else f"{name}-FOR"
+                    self.launch()
+                return
+            # single direction (-1/1)
+            else:
+                # comes from both direction call
+                # (create folder, move there, copy hessian if present, run)
+                if hasattr(self, 'irc_both_dir'):
+                    routine = f"mkdir -p {self.name}\ncd {self.name}\n"
+                    if os.path.isfile("update.dump"):
+                        routine += f"cp ../update.dump {self.name}/\n"
+                    routine += f"{opt['exe']} ../{self.dynn0} --NAME {self.name} --IRC_DIR {self.opt['irc_dir']} > {self.name}.log\n"
+                # normal (just run)
+                else:
+                    self.write_dynn()
+                    routine = f"{opt['exe']} {self.dynn} > {self.name}.log\n"
 
         # POTENTIAL -------------------------------------------------------
         elif mode == 'scan':
