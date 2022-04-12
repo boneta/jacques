@@ -295,7 +295,7 @@ class DynnConfig:
     def read_opt(self, **kwargs):
         '''Read options from a dictionary / labelled values'''
         # read configuration file first
-        if 'f' in kwargs:
+        if 'f' in kwargs and kwargs['f'] is not None:
             self.read_file(kwargs['f'])
         for option, value in kwargs.items():
             if option == 'dim':
