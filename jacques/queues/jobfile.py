@@ -10,7 +10,6 @@
 
 """
 
-import os.path
 import re
 import sys
 from copy import deepcopy
@@ -42,7 +41,7 @@ class JobFile:
         ----------
         name : str
             name for the job (def: 'job')
-        filename : str
+        jobfile : str
             name of the job file (def: 'job.job')
         commands : str
             formatted sring of commands to be executed as job
@@ -98,7 +97,7 @@ class JobFile:
         return self.opt['name']
 
     @property
-    def filename(self) -> str:
+    def jobfile(self) -> str:
         return f"{self.name}.job"
 
     def __str__(self) -> str:
@@ -127,7 +126,7 @@ class JobFile:
 
     def write(self) -> None:
         """Write to a file (.job)"""
-        with open(self.filename, 'w') as f:
+        with open(self.jobfile, 'w') as f:
             f.write(str(self))
 
     def submit(self, dry=False) -> None:
@@ -142,10 +141,10 @@ class JobFile:
         """
         self.write()
         if not dry:
-            self.qmanager.submit(self.filename)
-            sys.stdout.write(f"Jobfile submitted: {self.filename}\n")
+            self.qmanager.submit(self.jobfile)
+            sys.stdout.write(f"Jobfile submitted: {self.jobfile}\n")
         else:
-            sys.stdout.write(f"Jobfile written: {self.filename}\n")
+            sys.stdout.write(f"Jobfile written: {self.jobfile}\n")
 
 
 def _conv_mem(memory, out_units='MB'):
