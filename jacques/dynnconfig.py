@@ -30,6 +30,11 @@ except ImportError:
     jacques_import = False
 
 
+def _natural_sort(l) -> list:
+    '''Sort a list by natural order'''
+    alphanum_key = lambda key: [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', key)]
+    return sorted(l, key=alphanum_key)
+
 class DynnConfig:
     """
         DYNAMON configuration class
@@ -427,12 +432,6 @@ class DynnConfig:
         elif isinstance(c,int):
             return int2str[c]
 
-    @staticmethod
-    def _natural_sort(l):
-        '''Sort a list by natural order'''
-        alphanum_key = lambda key: [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', key)]
-        return sorted(l, key=alphanum_key)
-
     def launch(self):
         '''
             Launch the calculation to the queue system
@@ -530,66 +529,35 @@ class DynnConfig:
 
         # FREE ENERGY / CORRECTION ------------------------------------
         elif mode in ('pmf', 'corr'):
-            raise NotImplementedError("PMF/CORR mode not implemented yet")
             self.resolve_constr(self.dim)
-            self.dynn = name + '.dynn'
-            self.write(self.dynn, True)
-            # create jobs folder
-            shutil.rmtree("jobs", ignore_errors=True)
-            os.mkdir("jobs")
             # get list of crd files
-            crd_dir = opt['coord']
+            crd_dir = self.opt['coord']
             if not os.path.isdir(crd_dir):
                 sys.exit("ERROR: Path to look for crd not found")
-            crd_files = self._natural_sort(glob.glob(os.path.join(crd_dir, "*.crd")))
-            # loop through all requested dimensions
-            job_files = []
-            not_found = []
-            for c in itertools.product(*[range(constr[i]['n']+1) for i in range(self.dim)]):
-                numd = ".".join(map(str, c))
-                nums = " ".join(map(str, c))
-                jobfile = name + "." + numd + ".job"
-                queue_param = queues.param(name+"."+numd, queue=opt['queue'], cores=opt['cores'], memory=opt['memory'])
-                # find corresponding coordinates
-                try:
-                    crd = [i for i in crd_files if "."+numd+".crd" in i][0]
-                except IndexError:
-                    not_found.append(nums)
-                    continue
-                if mode == 'pmf':
-                    routine = """
-                              cd {pwd}\n
-                              {exe} {dynnfile} --NAME {name}.{numd} --N {nums} --COORD {crd} > {name}.{numd}.log\n
-                              """.format(pwd=os.getcwd(), exe=exe, dynnfile=self.dynn, name=name, numd=numd, nums=nums, crd=crd)
-                elif mode == 'corr':
-                    routine = """
-                              mkdir {pwd}/{name}.{numd}
-                              cd {pwd}/{name}.{numd}\n
-                              {exe} ../{dynnfile} --OUT ../{out} --NAME {name}.{numd} --N {nums} --COORD ../{crd} > {name}.{numd}.log\n
-                              """.format(pwd=os.getcwd(), exe=exe, dynnfile=self.dynn, name=name, out=out, numd=numd, nums=nums, crd=crd)
-                with open(os.path.join("jobs", jobfile), 'w') as jobf:
-                    jobf.write(queue_param)
-                    jobf.write(dedent(routine))
-                job_files.append(jobfile)
-            # not found warning
-            if not_found:
-                with open("crd_not_found.txt", 'w') as f:
-                    f.write("\n".join(not_found))
-                sys.stdout.write("WARNING: Some crd could not be found. Registered on 'crd_not_found.txt'.\n")
-            # main job launcher driver
-            with open(name+".job", 'w') as jobf:
-                jobf.write(queues.param(name, queue=opt['queue'], cores=1))
-                jobf.write(f"\ncd {os.getcwd()}\n\n")
-                jobf.write("jobs=(\\\n"+"\n".join(job_files)+"\n)\n")
-                routine = r"""
-                          for job in ${jobs[@]}; do
-                              { qsub   jobs/$job ; } 2>/dev/null
-                              { sbatch jobs/$job ; } 2>/dev/null
-                              sleep 1
-                          done
-                          """
-                jobf.write(dedent(routine))
-            submit_job(opt, name+".job")
+            crd_files = _natural_sort(glob.glob(os.path.join(crd_dir, "*.crd")))
+            crd_files = [os.path.basename(crd) for crd in crd_files]
+            # correction path
+            if mode == 'corr':
+                self.opt['coord'] = f"../{self.opt['coord']}"
+                self.opt['out'] = f"../{self.out}"
+            self.write_dynn()
+            # build argument for each crd file (based on dot separated numbers in crd files)
+            arguments = [f"'{self.name}  {' '.join(crd_files[-1].split('.')[1:-1])}'"]
+            for crd in crd_files:
+                num = crd.split('.')[1:-1]
+                arguments.append("'--NAME {name}.{num_dot} --N {num_spc} --COORD \"{crd_path}\" > {name}.{num_dot}.log'"\
+                                 .format(name=self.name,
+                                         num_dot='.'.join(num),
+                                         num_spc=' '.join(num),
+                                         crd_path=os.path.join(self.opt['coord'], crd)))
+            # build routine
+            routine = "\narg=( {} )\n\n".format(' \\\n      '.join(arguments))
+            if mode == 'corr':
+                routine += f"mkdir -p {self.name}.$ID\ncd {self.name}.$ID\n"
+            routine += "{exe} {dynnfile} ${{arg[$ID]}}\n".format(dynnfile=self.dynn, exe=opt['exe'])
+            # set-up array
+            self.opt['array_first'] = 1
+            self.opt['array_last'] = len(crd_files)
 
         # UNKNOWN ---------------------------------------------------------
         else:
@@ -626,7 +594,7 @@ class DynnConfig:
                 file_pattern = f"*.{filetype}"
             elif filetype == 'dat':
                 file_pattern = f"{filetype}_*"
-            dir_files[filetype] = self._natural_sort(glob.glob(file_pattern))
+            dir_files[filetype] = _natural_sort(glob.glob(file_pattern))
 
         sys.stdout.write(f"## POST-PROCESS: {mode}\n# NAME: {name}\n\n")
 
