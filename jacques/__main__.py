@@ -20,10 +20,11 @@ from jacques.dynnconfig import DynnConfig
 
 
 def main():
-    # special arguments -> none or update
+    # no arguments
     if len(sys.argv) <= 1:
-        sys.exit("ERROR: No input arguments. Use -h for help.")
-    elif sys.argv[1] == 'update':
+        sys.argv.append('-h')
+    # special arguments
+    if sys.argv[1] == 'update':
         subprocess.run([os.path.join(jacques_path, "update.sh")])
         sys.exit(0)
 
