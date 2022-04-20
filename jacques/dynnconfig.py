@@ -547,7 +547,7 @@ class DynnConfig:
             arguments = [f"'{self.name}  {' '.join(crd_files[-1].split('.')[1:-1])}'"]
             for crd in crd_files:
                 num = crd.split('.')[1:-1]
-                arguments.append("'--NAME {name}.{num_dot} --N {num_spc} --COORD \"{crd_path}\"'"\
+                arguments.append("'--NAME {name}.{num_dot} --N {num_spc} --COORD {crd_path}'"\
                                  .format(name=self.name,
                                          num_dot='.'.join(num),
                                          num_spc=' '.join(num),
