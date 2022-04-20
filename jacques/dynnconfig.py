@@ -537,7 +537,9 @@ class DynnConfig:
             crd_files = _natural_sort(glob.glob(os.path.join(crd_dir, "*.crd")))
             crd_files = [os.path.basename(crd) for crd in crd_files]
             # correction path
+            dynnfile = self.dynn
             if mode == 'corr':
+                dynnfile = f"../{dynnfile}"
                 self.opt['coord'] = f"../{self.opt['coord']}"
                 self.opt['out'] = f"../{self.out}"
             self.write_dynn()
@@ -545,7 +547,7 @@ class DynnConfig:
             arguments = [f"'{self.name}  {' '.join(crd_files[-1].split('.')[1:-1])}'"]
             for crd in crd_files:
                 num = crd.split('.')[1:-1]
-                arguments.append("'--NAME {name}.{num_dot} --N {num_spc} --COORD \"{crd_path}\" > {name}.{num_dot}.log'"\
+                arguments.append("'--NAME {name}.{num_dot} --N {num_spc} --COORD \"{crd_path}\"'"\
                                  .format(name=self.name,
                                          num_dot='.'.join(num),
                                          num_spc=' '.join(num),
@@ -554,7 +556,10 @@ class DynnConfig:
             routine = "\narg=( {} )\n\n".format(' \\\n      '.join(arguments))
             if mode == 'corr':
                 routine += f"mkdir -p {self.name}.$ID\ncd {self.name}.$ID\n"
-            routine += "{exe} {dynnfile} ${{arg[$ID]}}\n".format(dynnfile=self.dynn, exe=opt['exe'])
+            routine += "{exe} {dynnfile} ${{arg[$ID]}} > {name}.${{ID}}.log\n"\
+                       .format(name=self.name,
+                               dynnfile=dynnfile,
+                               exe=opt['exe'])
             # set-up array
             self.opt['array_first'] = 1
             self.opt['array_last'] = len(crd_files)
