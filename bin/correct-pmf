@@ -78,10 +78,9 @@ if __name__ == '__main__':
             else:
                 print("WARNING: Missing value in CORR -> {}".format(pes_data[n, 3]))
                 pes_data = np.delete(pes_data, n, axis=0)
-        diff_data[:, 1] -= np.min(diff_data[:, 1])
         # save differences if requested
         if diff_raw_file is not None:
-            np.savetxt(diff_raw_file, diff_data[:2], fmt='%20.10f %20.10f')
+            np.savetxt(diff_raw_file, diff_data[:,:2], fmt='%20.10f %20.10f')
         if diff_smooth_file is not None:
             np.savetxt(diff_smooth_file,
                        np.column_stack((diff_data[:,0], array2array(diff_data[:,0], diff_data[:,1]))),
@@ -111,7 +110,6 @@ if __name__ == '__main__':
             else:
                 print("WARNING: Missing value in CORR -> {} {}".format(*pes_data[n, 4:6].astype(int)))
                 pes_data = np.delete(pes_data, n, axis=0)
-        diff_data[:, 2] -= np.min(diff_data[:, 2])
         # save differences if requested
         if diff_raw_file is not None:
             np.savetxt(diff_raw_file, diff_data[:,:3], fmt='%20.10f %20.10f %20.10f')
