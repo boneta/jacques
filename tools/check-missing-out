@@ -16,23 +16,28 @@ if __name__ == '__main__':
     # parser
     parser = argparse.ArgumentParser(prog='check-missing-out',
                                      description='check missing values from an OUT file')
-    parser.add_argument('-o', metavar='.out', type=str, required=True,
+    parser.add_argument('o', metavar='.out', type=str,
                         help='output file from DYNAMON')
     parser.add_argument('-n', metavar='#', type=int, nargs='+',
                         help='upper index extremes to check (def: 0-max)')
     parser.add_argument('-j', metavar='.job', type=str,
                         help='re-launch array of missing values from jobfile if any found')
+    parser.add_argument('-s', metavar='.out', type=str,
+                        help='sorted and min-to-zero output file')
     parser.add_argument('--dry', action='store_true',
                         help='dry run, print command but do not launch')
     args = parser.parse_args()
 
-    out_file = args.o
-    ndx      = args.n
-    jobfile  = args.j
-    dry      = args.dry
+    out_file    = args.o
+    ndx         = args.n
+    jobfile     = args.j
+    sorted_file = args.s
+    dry         = args.dry
 
     # read out file
-    out_data = np.loadtxt(out_file, dtype=float, comments='#')
+    with open(out_file, 'r') as f:
+        out_first_line = f.readline().strip()
+        out_data = np.loadtxt(f, dtype=float, comments='#')
 
     # guess dimension (number of columns)
     #   X  #  DIST  Etot  Eqm  INDX  DIST_REF
@@ -43,7 +48,6 @@ if __name__ == '__main__':
     else:
         sys.exit("ERROR: Inconsistent dimension of output file")
 
-    # find missing values
     if dim == 1:
         out_data = out_data[out_data[:, 3].argsort()]
         ndx = (0, max(out_data[:, 3])) if ndx is None else (0, ndx[0])
@@ -51,7 +55,16 @@ if __name__ == '__main__':
         missing_array = [str(int(i)) for i in missing_array]
 
     elif dim == 2:
-        raise NotImplementedError("2D not implemented yet")
+        out_data = out_data[np.lexsort((out_data[:, 5], out_data[:, 4]))]
+        print("ERROR: Dimension 2 not yet implemented")
+
+    if sorted_file is not None:
+        # minimum energies to zero
+        for i in [dim+0, dim+1]:
+            out_data[:, i] -= min(out_data[:, i])
+        # save sorted output file
+        fmt = r'%12.4f  '*dim + r'%20.10f  %20.10f  ' + r'%5d  '*dim + r'%12.4f  '*dim
+        np.savetxt(sorted_file, out_data, fmt=fmt, comments='#', header=out_first_line[1:])
 
     # print results and launch jobfile
     if len(missing_array) == 0:
