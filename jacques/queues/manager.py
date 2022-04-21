@@ -11,6 +11,7 @@ Classes
 """
 
 import os.path
+import shlex
 import sys
 from shutil import which
 from subprocess import call
@@ -94,7 +95,7 @@ class QueueManager:
         else:
             return None
 
-    def submit(self, jobfile) -> None:
+    def submit(self, jobfile, options="", dry=False) -> None:
         """
             Submit a job file to the queue manager
 
@@ -102,8 +103,18 @@ class QueueManager:
             ----------
             jobfile : str
                 job file (bash script)
+            options : str, optional
+                additional options to pass to the queue manager
+            dry : bool, optional
+                dry run (do not submit the job)
         """
+        submit_command = [self.exe, jobfile]
+        if options:
+            submit_command = [submit_command[0], *shlex.split(options, posix=False), *submit_command[1:]]
         if self:
-            call([self.exe, jobfile])
+            if dry:
+                sys.stdout.write(shlex.join(submit_command) + "\n")
+            else:
+                call(submit_command)
         else:
             sys.stdout.write(f"ERROR: No queue system detected. Job '{jobfile}' not submitted\n")
