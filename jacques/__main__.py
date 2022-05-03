@@ -29,8 +29,7 @@ def main():
         sys.exit(0)
 
     # parser
-    p = parser(sys.argv[1])
-    args = p.parse_args()
+    args = parser(sys.argv[1])
 
     # configuration object
     config = DynnConfig()
