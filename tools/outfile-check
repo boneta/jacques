@@ -17,8 +17,8 @@ if __name__ == '__main__':
     # parser
     parser = argparse.ArgumentParser(prog='check-missing-out',
                                      description='check missing values from an OUT file')
-    parser.add_argument('o', metavar='.out', type=str,
-                        help='output file from DYNAMON')
+    parser.add_argument('o', metavar='.out', type=str, nargs='+',
+                        help='output file from DYNAMON, combine if multiple')
     parser.add_argument('-n', metavar='#', type=int, nargs='+',
                         help='upper index extremes to check (def: 0-max)')
     parser.add_argument('-f', metavar='.dynn', type=str,
@@ -31,17 +31,20 @@ if __name__ == '__main__':
                         help='dry run, print command but do not launch')
     args = parser.parse_args()
 
-    out_file    = args.o
+    out_files   = args.o
     ndx         = args.n
     dynn_file   = args.f
     job_file    = args.j
     sorted_file = args.s
     dry         = args.dry
 
-    # read out file
-    with open(out_file, 'r') as f:
-        out_first_line = f.readline().strip()
-        out_data = np.loadtxt(f, dtype=float, comments='#')
+    # read out files
+    out_data_all = []
+    for out in out_files:
+        with open(out, 'r') as f:
+            out_first_line = f.readline().strip()
+            out_data_all.append(np.loadtxt(f, dtype=float, comments='#'))
+    out_data = np.concatenate(out_data_all)
 
     # guess dimension (number of columns)
     #   X  #  DIST  Etot  Eqm  INDX  DIST_REF
@@ -55,14 +58,15 @@ if __name__ == '__main__':
     # read dynn config file
     if dynn_file:
         dynn_config = DynnConfig(dynn_file)
-        dynn_config.resolve_constr(dynn_config(dim))
+        dynn_config.resolve_constr(dim)
 
-    # sort data and find missing values
+    # remove duplicate index, sort data and find missing values
     if dim == 1:
+        out_data = out_data[np.unique(out_data[:, 3], return_index=True)[1]]
         out_data = out_data[out_data[:, 3].argsort()]
         if ndx is not None:
             ndx = (0, ndx[0])
-        elif dynn_config:
+        elif dynn_file:
             ndx = (0, dynn_config.constr[0]['n'])
         else:
             ndx = (0, max(out_data[:, 3]))
@@ -71,10 +75,11 @@ if __name__ == '__main__':
         missing_array = [str(int(i)) for i in missing_array]
         missing_array.sort()
     elif dim == 2:
+        out_data = out_data[np.unique(out_data[:, 4:6], axis=0, return_index=True)[1]]
         out_data = out_data[np.lexsort((out_data[:, 5], out_data[:, 4]))]
         if ndx is not None and len(ndx) >= 2:
             ndx = ((0, ndx[0]), (0, ndx[1]))
-        elif dynn_config:
+        elif dynn_file:
             ndx = ((0, dynn_config.constr[0]['n']), (0, dynn_config.constr[1]['n']))
         else:
             ndx = ((0, max(out_data[:, 4])), (0, max(out_data[:, 5])))
