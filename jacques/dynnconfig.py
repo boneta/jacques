@@ -494,6 +494,7 @@ class DynnConfig:
             self.resolve_constr(1)
             self.write_dynn()
             routine = """
+                      set -e
                       coord={coord0}
                       for i in {{0..{n}}}; do
                           {exe} {dynnfile} --NAME {name}.$i --N $i --COORD $coord >> {name}.log
@@ -511,6 +512,7 @@ class DynnConfig:
             self.opt['array_first'] = 0
             self.opt['array_last'] = self.constr[0]['n']
             routine = """
+                      set -e
                       if [ $ID -eq 0 ]; then
                           coord={coord0}
                       else
@@ -521,7 +523,7 @@ class DynnConfig:
                           sleep 10s
                       done
                       for j in {{0..{n}}}; do
-                          {exe} {dynnfile} --NAME {name}.$ID.$j --N $ID $j --COORD $coord >> {name}.$ID.log
+                          {exe} {dynnfile} --NAME {name}.$ID.$j --N $ID $j --COORD $coord --OUT {name}.$ID.out >> {name}.$ID.log
                           coord={name}.$ID.$j.crd
                       done
                       """.format(name=self.name,
