@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 # Description: Check missing values from an OUT file
-# Last update: 21-04-2022
+# Last update: 03-05-2022
 
 import argparse
 import sys
 
 import numpy as np
 
+from jacques.dynnconfig import DynnConfig
 from jacques.queues import QueueManager
 
 
@@ -20,6 +21,8 @@ if __name__ == '__main__':
                         help='output file from DYNAMON')
     parser.add_argument('-n', metavar='#', type=int, nargs='+',
                         help='upper index extremes to check (def: 0-max)')
+    parser.add_argument('-f', metavar='.dynn', type=str,
+                        help='dynn configuration file to read index')
     parser.add_argument('-j', metavar='.job', type=str,
                         help='re-launch array of missing values from jobfile if any found')
     parser.add_argument('-s', metavar='.out', type=str,
@@ -30,7 +33,8 @@ if __name__ == '__main__':
 
     out_file    = args.o
     ndx         = args.n
-    jobfile     = args.j
+    dynn_file   = args.f
+    job_file    = args.j
     sorted_file = args.s
     dry         = args.dry
 
@@ -48,15 +52,36 @@ if __name__ == '__main__':
     else:
         sys.exit("ERROR: Inconsistent dimension of output file")
 
+    # read dynn config file
+    if dynn_file:
+        dynn_config = DynnConfig(dynn_file)
+        dynn_config.resolve_constr(dynn_config(dim))
+
+    # sort data and find missing values
     if dim == 1:
         out_data = out_data[out_data[:, 3].argsort()]
-        ndx = (0, max(out_data[:, 3])) if ndx is None else (0, ndx[0])
-        missing_array = set(np.arange(ndx[0], ndx[1]+1)) - set(out_data[:, 3])
+        if ndx is not None:
+            ndx = (0, ndx[0])
+        elif dynn_config:
+            ndx = (0, dynn_config.constr[0]['n'])
+        else:
+            ndx = (0, max(out_data[:, 3]))
+        total_array = set(np.arange(ndx[0], ndx[1]+1))
+        missing_array = total_array - set(out_data[:, 3])
         missing_array = [str(int(i)) for i in missing_array]
-
+        missing_array.sort()
     elif dim == 2:
         out_data = out_data[np.lexsort((out_data[:, 5], out_data[:, 4]))]
-        print("ERROR: Dimension 2 not yet implemented")
+        if ndx is not None and len(ndx) >= 2:
+            ndx = ((0, ndx[0]), (0, ndx[1]))
+        elif dynn_config:
+            ndx = ((0, dynn_config.constr[0]['n']), (0, dynn_config.constr[1]['n']))
+        else:
+            ndx = ((0, max(out_data[:, 4])), (0, max(out_data[:, 5])))
+        total_array = {(i,j) for i in np.arange(ndx[0][0], ndx[0][1]+1) for j in np.arange(ndx[1][0], ndx[1][1]+1)}
+        missing_array = total_array - {(i,j) for i,j in zip(out_data[:, 4], out_data[:, 5])}
+        missing_array = [str(int(i))+' '+str(int(j)) for i,j in missing_array]
+        missing_array.sort()
 
     if sorted_file is not None:
         # minimum energies to zero
@@ -68,15 +93,15 @@ if __name__ == '__main__':
 
     # print results and launch jobfile
     if len(missing_array) == 0:
-        print("OK! No missing values found")
+        print("ALRIGHT! No missing values found")
     else:
-        print(f"Missing array:  {', '.join(missing_array)}")
-        if jobfile:
+        print("Missing {} values:\n {}".format(len(missing_array), '\n '.join(missing_array)))
+        if job_file and dim == 1:
             qmanager = QueueManager()
             if qmanager.manager == 'slurm':
-                qmanager.submit(jobfile, f"--array={','.join(missing_array)}", dry)
+                qmanager.submit(job_file, f"--array={','.join(missing_array)}", dry)
             elif qmanager.manager == 'sge':
                 for n in missing_array:
-                    qmanager.submit(jobfile, f"-t {n}-{n}", dry)
+                    qmanager.submit(job_file, f"-t {n}-{n}", dry)
             else:
                 sys.exit("ERROR: Could not launch. Queue manager not supported/found.")
