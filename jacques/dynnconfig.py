@@ -518,11 +518,11 @@ class DynnConfig:
                           coord={name}.$(($ID-1)).0.crd
                       fi
                       for waiting in {{0..60}}; do
-                          [[ -f $$coord ]] && break
+                          [[ -f $coord ]] && break
                           sleep 10s
                       done
                       for j in {{0..{n}}}; do
-                          {exe} {dynnfile} --NAME {name}.$ID.$j --N $ID $j --COORD {coord} >> {name}.$ID.log
+                          {exe} {dynnfile} --NAME {name}.$ID.$j --N $ID $j --COORD $coord >> {name}.$ID.log
                           coord={name}.$ID.$j.crd
                       done
                       """.format(name=self.name,
