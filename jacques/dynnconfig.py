@@ -14,7 +14,6 @@
 """
 
 import glob
-import itertools
 import math as m
 import os
 import re
@@ -509,8 +508,8 @@ class DynnConfig:
         elif mode == 'pes':
             self.resolve_constr(2)
             self.write_dynn()
-            opt['array_first'] = 0
-            opt['array_last'] = self.constr[0]['n']
+            self.opt['array_first'] = 0
+            self.opt['array_last'] = self.constr[0]['n']
             routine = """
                       if [ $ID -eq 0 ]; then
                           coord={coord0}

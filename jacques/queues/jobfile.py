@@ -64,8 +64,8 @@ class JobFile:
         'memory': '4000MB',
         'memory_plus': '1000MB',
         'nodes': 1,
-        'array_first': 1,
-        'array_last': 1,
+        'array_first': 0,
+        'array_last': 0,
         'msgf': msgf,
         'jobf': None
         }
@@ -119,8 +119,8 @@ class JobFile:
             queue_text = self.qmanager.template.format(**opt)
             # remove parallel environment for one core in SGE and array if only one job
             queue_text = queue_text.replace('#$ -pe mp1 1\n', '') \
-                                   .replace('#$ -t 1-1\n', '') \
-                                   .replace('#SBATCH --array=1-1\n', '')
+                                   .replace('#$ -t 0-0\n', '') \
+                                   .replace('#SBATCH --array=0-0\n', '')
         # combined text
         return f"#!/bin/bash\n\n{queue_text}\n{self.commands}\n"
 
