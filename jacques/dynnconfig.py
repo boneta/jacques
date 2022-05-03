@@ -492,7 +492,7 @@ class DynnConfig:
 
         # POTENTIAL -------------------------------------------------------
         elif mode == 'scan':
-            self.resolve_constr()
+            self.resolve_constr(1)
             self.write_dynn()
             routine = """
                       coord={coord0}
@@ -502,12 +502,12 @@ class DynnConfig:
                       done
                       """.format(name=self.name,
                                  dynnfile=self.dynn,
-                                 exe=opt['exe'],
-                                 coord0=opt['coord'],
+                                 exe=self.opt['exe'],
+                                 coord0=self.opt['coord'],
                                  n=self.constr[0]['n'])
 
         elif mode == 'pes':
-            self.resolve_constr()
+            self.resolve_constr(2)
             self.write_dynn()
             opt['array_first'] = 0
             opt['array_last'] = self.constr[0]['n']
@@ -517,14 +517,18 @@ class DynnConfig:
                       else
                           coord={name}.$(($ID-1)).0.crd
                       fi
+                      for waiting in {{0..60}}; do
+                          [[ -f $$coord ]] && break
+                          sleep 10s
+                      done
                       for j in {{0..{n}}}; do
                           {exe} {dynnfile} --NAME {name}.$ID.$j --N $ID $j --COORD {coord} >> {name}.$ID.log
                           coord={name}.$ID.$j.crd
                       done
                       """.format(name=self.name,
                                  dynnfile=self.dynn,
-                                 exe=opt['exe'],
-                                 coord0=opt['coord'],
+                                 exe=self.opt['exe'],
+                                 coord0=self.opt['coord'],
                                  n=self.constr[1]['n'])
 
         # FREE ENERGY / CORRECTION ------------------------------------
