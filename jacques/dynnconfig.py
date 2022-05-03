@@ -518,7 +518,7 @@ class DynnConfig:
                       else
                           coord={name}.$(($ID-1)).0.crd
                       fi
-                      for waiting in {{0..60}}; do
+                      for waiting in {{1..360}}; do
                           [[ -f $coord ]] && break
                           sleep 10s
                       done
