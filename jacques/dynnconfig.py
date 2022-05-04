@@ -89,7 +89,7 @@ class DynnConfig:
     opt_keys = [
         'mode',
 
-        'name', 'out', 'sys', 'bin', 'sele', 'coord', 'ff', 'seq',
+        'name', 'out', 'pdb', 'sys', 'bin', 'sele', 'coord', 'ff', 'seq',
         'cores', 'memory',
         'charge', 'multi', 'force_uhf',
         'semiemp', 'gauss', 'func', 'basis',
