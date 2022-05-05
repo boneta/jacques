@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+
+# Description: Check missing values from an OUT file
+# Last update: 05-05-2022
+
+import argparse
+
+from jacques.dynnconfig import DynnConfig
+from jacques.processing import post_out
+
+
+if __name__ == '__main__':
+
+    # parser
+    parser = argparse.ArgumentParser(prog='out-check',
+                                     description='check missing values from an OUT file')
+    parser.add_argument('o', metavar='.out', type=str, nargs='+',
+                        help='output file from DYNAMON, combine if multiple')
+    parser.add_argument('-n', metavar='#', type=int, nargs='+',
+                        help='upper index extremes to check (def: 0-max)')
+    parser.add_argument('-f', metavar='.dynn', type=str,
+                        help='dynn configuration file to read index')
+    parser.add_argument('-s', metavar='.out', type=str,
+                        help='sorted and min-to-zero output file')
+    parser.add_argument('--dry', action='store_true',
+                        help='dry run, print command but do not launch')
+    args = parser.parse_args()
+
+    out_files   = args.o
+    ndx         = args.n
+    dynn_file   = args.f
+    job_file    = args.j
+    sorted_file = args.s
+    dry         = args.dry
+
+    if dynn_file:
+        dynnconfig = DynnConfig(dynn_file)
+
+    missing_values = post_out(out_files, final_file=sorted_file, dynnconfig=dynnconfig, ndx=ndx, rm=False)
+
+    # print results and launch jobfile
+    if len(missing_values) == 0:
+        print("ALRIGHT! No missing values found")
+    else:
+        print("Missing {} values:\n {}".format(len(missing_values), '\n '.join(missing_values)))

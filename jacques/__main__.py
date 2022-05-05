@@ -14,9 +14,10 @@ import os
 import subprocess
 import sys
 
-from jacques import dynamon_path, jacques_path, opt_def
-from jacques._parser import parser
-from jacques.dynnconfig import DynnConfig
+from . import dynamon_path, jacques_path, opt_def
+from ._parser import parser
+from .dynnconfig import DynnConfig
+from .processing import post
 
 
 def main():
@@ -38,7 +39,7 @@ def main():
 
     # run post-process or launch calculation
     if config.opt['post']:
-      config.post()
+      post(config)
     else:
       config.launch()
 

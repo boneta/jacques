@@ -17,7 +17,6 @@ import glob
 import math as m
 import os
 import re
-import shutil
 import sys
 from copy import deepcopy
 from textwrap import dedent
@@ -82,8 +81,6 @@ class DynnConfig:
             Resolve the iteration parameters for the first n constraint
         launch()
             launch the calculation to the queue system
-        post(rm)
-            post-process routine after a calculation
     """
 
     opt_keys = [
@@ -201,8 +198,10 @@ class DynnConfig:
         '''Calculation name'''
         if self.opt['name'] is not None:
             return self.opt['name']
-        else:
+        elif self.opt['mode'] is not None:
             return self.mode.upper()
+        else:
+            return None
 
     @property
     def dynn(self):
@@ -334,7 +333,7 @@ class DynnConfig:
         '''
 
         if mode is None:
-            sys.stdout.write("WARNING: Default settings not assigned. Missing MODE")
+            sys.stdout.write("WARNING: Default settings not assigned. Missing MODE\n")
             return
 
         # general options of specific mode and general ("all")
@@ -575,82 +574,3 @@ class DynnConfig:
 
         jobfile = JobFile(dedent(routine), **self.opt)
         jobfile.submit(self.opt['dry'])
-
-    def post(self, rm=True):
-        '''
-            Post-process routine after a calculation
-
-            Parameters
-            ----------
-            rm : bool
-                remove files after processing
-        '''
-
-        filetypes = ('log', 'crd', 'out', 'dat')
-
-        mode   = self.mode
-        name   = self.name
-
-        # check fundamental parameters
-        if mode is None:
-            sys.exit("ERROR: Missing MODE")
-        elif mode not in ('scan', 'pes', 'pmf', 'corr'):
-            sys.exit(f"ERROR: No post-process routine for this mode '{mode}'")
-
-        # list of files to process in natural order
-        dir_files = dict()
-        for filetype in filetypes:
-            if filetype in ('log', 'crd', 'out', 'job'):
-                file_pattern = f"*.{filetype}"
-            elif filetype == 'dat':
-                file_pattern = f"{filetype}_*"
-            dir_files[filetype] = _natural_sort(glob.glob(file_pattern))
-
-        sys.stdout.write(f"## POST-PROCESS: {mode}\n# NAME: {name}\n\n")
-
-        for filetype in filetypes:
-            # check no files matching
-            if dir_files[filetype]:
-                n_tot = len(dir_files[filetype])
-                # pre-loop actions
-                if filetype in ('log', 'out'):
-                    final_file = f"{name}.{filetype}"
-                    # remove final file from file lists
-                    if final_file in dir_files[filetype]: dir_files[filetype].remove(final_file)
-                    f_final = open(final_file, 'a+')
-                elif filetype == 'crd' and not os.path.isdir("crd"):
-                    os.mkdir("crd")
-                elif filetype == 'dat' and not os.path.isdir("dat"):
-                    os.mkdir("dat")
-                # loop through every matched file
-                for n, f in enumerate(dir_files[filetype]):
-                    # LOG / OUT -----
-                    if filetype in ('log', 'out'):
-                        if filetype == 'log': f_final.write(f"\n#######  {f}  \n")
-                        with open(f, 'r') as f_tmp:
-                            f_final.write(f_tmp.read())
-                        if rm: os.remove(f)
-                    # CRD -----
-                    elif filetype == 'crd':
-                        shutil.move(f, os.path.join("crd", f))
-                    # DAT -----
-                    elif filetype == 'dat':
-                        shutil.move(f, os.path.join("dat", f))
-                    # progress bar
-                    sys.stdout.write("\r# {}s  [{:21s}] - {:>6.2f}%".format(filetype.upper(),
-                                                                            "■"*int(21.*(n+1)/n_tot),
-                                                                            (n+1)/n_tot*100))
-                    sys.stdout.flush()
-                sys.stdout.write(f"\r# {filetype.upper()}s  ✔ {' ':<40}\n")
-                # post-loop actions
-                if filetype in ('log', 'out'):
-                    f_final.close()
-            else:
-                sys.stdout.write(f"# {filetype.upper()}s  ⨯\n")
-
-        # JOB -----
-        if rm and os.path.isdir("jobs"):
-            shutil.rmtree("jobs")
-            sys.stdout.write("# JOBSs  ✔\n")
-
-        sys.stdout.write("\n")
