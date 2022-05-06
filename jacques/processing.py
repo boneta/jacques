@@ -16,13 +16,19 @@
 
 import glob
 import os
+import re
 import shutil
 import sys
 
 import numpy as np
 
-from .dynnconfig import DynnConfig, _natural_sort
+from .dynnconfig import DynnConfig
 
+
+def _natural_sort(l) -> list:
+    '''Sort a list by natural order'''
+    alphanum_key = lambda key: [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', key)]
+    return sorted(l, key=alphanum_key)
 
 def _progress_bar(name, n, n_tot, bar_length=21) -> None:
     sys.stdout.write("\r# {}s  [{:21s}] - {:>6.2f}%".format(name,
