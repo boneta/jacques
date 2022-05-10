@@ -20,9 +20,8 @@ import re
 import shutil
 import sys
 
-import numpy as np
-
 from .dynnconfig import DynnConfig
+from .outfile import OutFile
 
 
 def _natural_sort(l) -> list:
@@ -50,7 +49,7 @@ def post_log(files:list, file_final, rm=True, progress_bar=True) -> None:
             _progress_bar("LOG", n, len(files))
     f_final.close()
 
-def post_out(files, file_final=None, dynnconfig=None, ndx=None, rm=True) -> list:
+def post_out(files, file_final=None, dynnconfig=None, rm=True) -> list:
     '''
         Post-Processing routine for .out files
 
@@ -62,78 +61,33 @@ def post_out(files, file_final=None, dynnconfig=None, ndx=None, rm=True) -> list
             name of sorted .out file to write
         dynnconfig : DynnConfig, optional
             DynnConfig object to read extreme indexes
-        ndx : list, optional
-            list of extreme indexes to find
-            default behavior is from 0 to max index found
         rm : bool, optional
             remove files after processing (def: True)
             only if file_final is not None and no missing values
 
         Returns
         -------
-        list
-            list of missing points
+        ndarray of ndarray
+            list of missing indexes
     '''
-    # read all files
-    out_data_all = []
-    for out in files:
-        with open(out, 'r') as f:
-            out_first_line = f.readline().strip()
-            out_data_all.append(np.loadtxt(f, dtype=float, comments='#'))
-    out_data = np.concatenate(out_data_all)
-
-    # guess dimension (number of columns)
-    if out_data.shape[1] == 5:
-        dim = 1
-    elif out_data.shape[1] == 8:
-        dim = 2
-    else:
-        raise ValueError("Inconsistent number of columns in .out file")
-
+    out = OutFile(files)
+    max_ndx = None
     if dynnconfig:
-        dynnconfig.resolve_constr(dim)
-
-    # remove duplicate index, sort data and find missing values
-    if dim == 1:
-        out_data = out_data[np.unique(out_data[:, 3], return_index=True)[1]]
-        out_data = out_data[out_data[:, 3].argsort()]
-        if ndx is not None:
-            ndx = (0, ndx[0])
-        elif dynnconfig:
-            ndx = (0, dynnconfig.constr[0]['n'])
-        else:
-            ndx = (0, max(out_data[:, 3]))
-        total_values = set(np.arange(ndx[0], ndx[1]+1))
-        missing_values = total_values - set(out_data[:, 3])
-        missing_values = [str(int(i)) for i in missing_values]
-        missing_values.sort()
-    elif dim == 2:
-        out_data = out_data[np.unique(out_data[:, 4:6], axis=0, return_index=True)[1]]
-        out_data = out_data[np.lexsort((out_data[:, 5], out_data[:, 4]))]
-        if ndx is not None and len(ndx) >= 2:
-            ndx = ((0, ndx[0]), (0, ndx[1]))
-        elif dynnconfig:
-            ndx = ((0, dynnconfig.constr[0]['n']), (0, dynnconfig.constr[1]['n']))
-        else:
-            ndx = ((0, max(out_data[:, 4])), (0, max(out_data[:, 5])))
-        total_values = {(i,j) for i in np.arange(ndx[0][0], ndx[0][1]+1) for j in np.arange(ndx[1][0], ndx[1][1]+1)}
-        missing_values = total_values - {(i,j) for i,j in zip(out_data[:, 4], out_data[:, 5])}
-        missing_values = [str(int(i))+' '+str(int(j)) for i,j in missing_values]
-        missing_values.sort()
-
+        dynnconfig.resolve_constr(out.dim)
+        max_ndx = [dynnconfig.constr[i]['n'] for i in range(out.dim)]
+    # remove duplicate index and find missing values
+    out.unique()
+    missing_ndx = out.missing_ndx(max_ndx)
+    # write sorted file
     if file_final is not None:
-        # minimum energies to zero
-        for i in [dim+0, dim+1]:
-            out_data[:, i] -= min(out_data[:, i])
-        # save sorted output file
-        fmt = r'%12.4f  '*dim + r'%20.10f  %20.10f  ' + r'%5d  '*dim + r'%12.4f  '*dim
-        np.savetxt(file_final, out_data, fmt=fmt, comments='#', header=out_first_line[1:])
-
-    if rm and file_final is not None and len(missing_values) == 0:
-        for out in files:
-            os.remove(out)
-
-    return missing_values
+        out.sort()
+        out.zero()
+        out.write(file_final)
+    # remove files
+    if rm and file_final is not None and len(missing_ndx) == 0:
+        for f in files:
+            os.remove(f)
+    return missing_ndx
 
 def post_crd(files:list, folder='crd', progress_bar=True) -> None:
     if not os.path.isdir(folder):
@@ -198,7 +152,7 @@ def post(dynnconfig:'DynnConfig', rm:bool=True) -> None:
             post_log(dir_files[filetype], f"{name}.log", rm)
         elif filetype == 'out':
             missing_out = post_out(dir_files[filetype], f"{name}.out", dynnconfig, rm=rm)
-            if missing_out:
+            if len(missing_out) > 0:
                 sys.stdout.write(f"\r# OUTs ⨯  -  Missing {len(missing_out)} points\n")
                 continue
         elif filetype == 'crd':

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 # Description: Check missing values from an OUT file
-# Last update: 05-05-2022
+# Last update: 10-05-2022
 
 import argparse
 
+from jacques.constants import J2CAL
 from jacques.dynnconfig import DynnConfig
-from jacques.processing import post_out
+from jacques.outfile import OutFile
 
 
 if __name__ == '__main__':
@@ -22,24 +23,39 @@ if __name__ == '__main__':
                         help='dynn configuration file to read index')
     parser.add_argument('-s', metavar='.out', type=str,
                         help='sorted and min-to-zero output file')
-    parser.add_argument('--dry', action='store_true',
-                        help='dry run, print command but do not launch')
+    parser.add_argument('--units', metavar='U', type=str, choices=('kj', 'kcal'), default='kj',
+                        help='output units per mol {kj / kcal} (def: kj)')
     args = parser.parse_args()
 
     out_files   = args.o
     ndx         = args.n
     dynn_file   = args.f
-    job_file    = args.j
     sorted_file = args.s
-    dry         = args.dry
+    units       = args.units
 
+    # read DYNAMON configuration file
     if dynn_file:
         dynnconfig = DynnConfig(dynn_file)
-
-    missing_values = post_out(out_files, final_file=sorted_file, dynnconfig=dynnconfig, ndx=ndx, rm=False)
-
-    # print results and launch jobfile
-    if len(missing_values) == 0:
+    # read out file
+    out = OutFile(out_files)
+    # set upper index extremes
+    if dynn_file:
+        dynnconfig.resolve_constr(out.dim)
+        ndx = [dynnconfig.constr[i]['n'] for i in range(out.dim)]
+    # remove duplicate index and find missing values
+    out.unique()
+    missing_ndx = out.missing_ndx(ndx)
+    # write sorted and zero file
+    if sorted_file is not None:
+        out.sort()
+        out.zero()
+        if units == 'kcal':
+            out.Etot *= J2CAL
+            out.Eqm *= J2CAL
+        out.write(sorted_file)
+    # print results
+    if len(missing_ndx) == 0:
         print("ALRIGHT! No missing values found")
     else:
-        print("Missing {} values:\n {}".format(len(missing_values), '\n '.join(missing_values)))
+        missing_ndx_str = [" ".join(i.astype(str)) for i in missing_ndx]
+        print("Missing {} values:\n {}".format(len(missing_ndx), '\n '.join(missing_ndx_str)))
