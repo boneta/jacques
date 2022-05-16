@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
@@ -24,17 +24,17 @@
 #  Dependences & some Constants...                                    #
 #                                                                     #
 #######################################################################
-import    os
-import    sys
-import    time
-import    math
-import    string
-import    struct
-import    stat
+import locale
+import math
+import os
+import stat
+import struct
+import sys
+import time
 
-# Compressed files...
-import    gzip
-import    bz2
+# Compressed files
+import gzip
+import bz2
 
 # http://physics.nist.gov/cuu/Constants/index.html
 _c       = 299792458.       # m·s-1
@@ -892,7 +892,7 @@ class Molec:
         if( sele ):
             b = struct.pack( self.dcd_end + "i", sele.count()*4 )
             self.dcd_fd.write( b )
-            for i in xrange( self.size ):
+            for i in range( self.size ):
                 if( sele.issel( i ) ):
                     self.dcd_fd.write( struct.pack( self.dcd_end + "i", i+1 ) )
                     self.dcd_sele.append( i )
@@ -979,14 +979,14 @@ class Molec:
                 t = struct.pack( self.dcd_end + "i", self.dcd_nfree * 4 )
                 for j in [0, 1, 2]:
                     b = ''
-                    for i in xrange( self.dcd_nfree ):
+                    for i in range( self.dcd_nfree ):
                         b += struct.pack( self.dcd_end + "f", self.crd[self.dcd_sele[i]][j] )
                     self.dcd_fd.write( t + b + t )
             else:
                 t = struct.pack( self.dcd_end + "i", self.size * 4 )
                 for j in [0, 1, 2]:
                     b = ''
-                    for i in xrange( self.size ):
+                    for i in range( self.size ):
                         b += struct.pack( self.dcd_end + "f", self.crd[i][j] )
                     self.dcd_fd.write( t + b + t )
             self.dcd_cframe+=1
@@ -1072,17 +1072,17 @@ class Molec:
                 if( line[0:4] == "ATOM" or line[0:6] == "HETATM" ):
                     n+=1
                     self.size=self.size+1
-                    self.atom.append( string.strip( line[12:16] ) )
-                    self.resn.append( string.strip( line[17:20] ) )
+                    self.atom.append( line[12:16].strip() )
+                    self.resn.append( line[17:20].strip() )
                     tmp=""
-                    for c in string.strip( line[23:30] ):
+                    for c in line[23:30].strip():
                         if( c in "0123456789" ):
                             tmp+=c
-                    self.resid.append( string.atoi( tmp ) )
+                    self.resid.append( locale.atoi( tmp ) )
                     self.crd.append( [\
-                        string.atof( line[30:38] ),\
-                        string.atof( line[38:46] ),\
-                        string.atof( line[46:54] ) ] )
+                        locale.atof( line[30:38] ),\
+                        locale.atof( line[38:46] ),\
+                        locale.atof( line[46:54] ) ] )
                     if( line[21] != " " ):
                         self.segn.append( line[21] )
                     else:
@@ -1136,14 +1136,14 @@ class Molec:
                 #ATOM   1229  O   GLY   111       2.581   2.164   8.255  0.00  0.00      PRH
                 n+=1
                 self.size+=1
-                self.atom.append( string.strip( line[12:17] ) )
-                self.resn.append( string.strip( line[17:21] ) )
-                self.resid.append( string.atoi( line[21:27] ) )
+                self.atom.append( line[12:17].strip() )
+                self.resn.append( line[17:21].strip() )
+                self.resid.append( locale.atoi( line[21:27] ) )
                 self.crd.append( [\
-                    string.atof( line[30:38] ),\
-                    string.atof( line[38:46] ),\
-                    string.atof( line[46:54] ) ] )
-                self.segn.append( string.strip( line[69:] ) )
+                    locale.atof( line[30:38] ),\
+                    locale.atof( line[38:46] ),\
+                    locale.atof( line[46:54] ) ] )
+                self.segn.append( line[69:].strip() )
                 if( lrid != self.get_resid( n ) or \
                 lres != self.get_resn( n ) or \
                 lseg != self.get_segn( n ) ):
@@ -1182,7 +1182,7 @@ class Molec:
         line=fd.readline()
         n=-1
         while( line != "" and ( line != "END\n" or line != "TER\n" ) ):
-            splt=string.split( line )
+            splt=line.split()
             # This only will run with a few cases... check more!!!
             if( splt[0] == "ATOM" or splt[0] == "HETATM" ):
                 # Append data...
@@ -1194,14 +1194,14 @@ class Molec:
                 if( splt[4].isalpha() ): r+=1
                 # fix for alphanumerical residue numbers (mostly antibodies)
                 try:
-                    ri = string.atoi( splt[r] )
+                    ri = locale.atoi( splt[r] )
                 except ValueError:
                     ri = -1
                 self.resid.append( ri )
                 self.crd.append( [\
-                    string.atof( splt[r + 1] ),\
-                    string.atof( splt[r + 2] ),\
-                    string.atof( splt[r + 3] ) ] )
+                    locale.atof( splt[r + 1] ),\
+                    locale.atof( splt[r + 2] ),\
+                    locale.atof( splt[r + 3] ) ] )
                 if( len( splt ) > 10 ):
                     self.segn.append( splt[10] )
                 else:
@@ -1290,19 +1290,19 @@ class Molec:
         line=fd.readline()
         n=0
         while( line != "" ):
-            splt=string.split( line )
-            keyw=string.upper( splt[0] )
+            splt=line.split()
+            keyw=splt[0].upper()
             # Take care... if the string is not long enough, [0:__] will
             # not raise any kind of error... but could !!!
             if( keyw[0:6] == "SUBSYS" ):
                 curr_segn=splt[2]
             if( keyw[0:4] == "RESI" ):
-                curr_resid=string.atoi( splt[1] )
+                curr_resid=locale.atoi( splt[1] )
                 curr_resn=splt[2]
-                splt=string.split( fd.readline() )
+                splt=fd.readline().split()
                 while( splt[0][0] == "!" ):
-                    splt=string.split( fd.readline() )
-                cnt_res=string.atoi( splt[0] )
+                    splt=fd.readline().split()
+                cnt_res=locale.atoi( splt[0] )
                 # Check .*_lim
                 if( lrid != curr_resid or \
                 lres != curr_resn or \
@@ -1318,9 +1318,9 @@ class Molec:
                 # Load residue !
                 m=0
                 while( m < cnt_res ):
-                    splt=string.split( fd.readline() )
+                    splt=fd.readline().split()
                     while( splt[0][0] == "!" ):
-                        splt=string.split( fd.readline() )
+                        splt=fd.readline().split()
                     m+=1
                     n+=1
                     self.size=self.size + 1
@@ -1329,11 +1329,11 @@ class Molec:
                     self.resid.append( curr_resid )
                     self.atom.append( splt[1] )
                     self.crd.append( [\
-                        string.atof( splt[3] ),\
-                        string.atof( splt[4] ),\
-                        string.atof( splt[5] ) ] )
+                        locale.atof( splt[3] ),\
+                        locale.atof( splt[4] ),\
+                        locale.atof( splt[5] ) ] )
                     self.chrg.append( .0 )
-                    self.z.append( string.atoi( splt[2] ) )
+                    self.z.append( locale.atoi( splt[2] ) )
             line=fd.readline()
         self.seg_lim.append( self.size )
         self.seg_lim_size+=1
@@ -1403,7 +1403,7 @@ class Molec:
         while( line != "" and f == 0 ):
             f=( line[0] != "*" )
             if( f == 0 ): line=fd.readline()
-        self.size=string.atoi( line )
+        self.size=locale.atoi( line )
         line=fd.readline()
         n=0
         while( line != "" ):
@@ -1415,19 +1415,19 @@ class Molec:
             #13416 2999 TIP3 H2   -16.23092  21.27275  -0.90305 W    2636   0.00000
             #0123456789.123456789.123456789.123456789.123456789.123456789.123456789.
             #          1         2         3         4         5         6
-            curr_resn=string.strip( line[11:16] )
-            curr_resid=string.atoi( line[55:60] )
-            # curr_tresi=string.atoi( line[5:10] )
-            curr_segn=string.strip( line[51:56] )
+            curr_resn=line[11:16].strip()
+            curr_resid=locale.atoi( line[55:60] )
+            # curr_tresi=locale.atoi( line[5:10] )
+            curr_segn=line[51:56].strip()
             # ---
-            self.atom.append( string.strip( line[16:20] ) )
+            self.atom.append( line[16:20].strip() )
             self.resid.append( curr_resid )
             self.resn.append( curr_resn )
             self.segn.append( curr_segn )
             self.crd.append( [\
-                string.atof( line[20:30] ),\
-                string.atof( line[30:40] ),\
-                string.atof( line[40:50] ) ] )
+                locale.atof( line[20:30] ),\
+                locale.atof( line[30:40] ),\
+                locale.atof( line[40:50] ) ] )
             # Check .*_lim
             if( lrid != curr_resid or lres != curr_resn or lseg != curr_segn ):
                 if( lseg != curr_segn ):
@@ -1482,7 +1482,7 @@ class Molec:
                 fd=open( name, "rt" )
         self.__clean()
         self.__init__()
-        self.size=string.atoi( fd.readline() )
+        self.size=locale.atoi( fd.readline() )
         self.seg_lim=[ 0, self.size ]
         self.seg_lim_size=2
         self.res_lim=[ 0, self.size ]
@@ -1490,13 +1490,13 @@ class Molec:
         fd.readline()
         m=0
         while( m < self.size ):
-            splt=string.split( fd.readline() )
+            splt=fd.readline().split()
             self.atom.append( splt[0] )
-            self.crd.append( [ string.atof( splt[1] ), \
-                string.atof( splt[2] ), \
-                string.atof( splt[3] ) ] )
+            self.crd.append( [ locale.atof( splt[1] ), \
+                locale.atof( splt[2] ), \
+                locale.atof( splt[3] ) ] )
             if( len( splt ) == 5 ):
-                self.chrg.append( string.atof( splt[4] ) )
+                self.chrg.append( locale.atof( splt[4] ) )
             else:
                 self.chrg.append( .0 )
             self.z.append( 0 )
@@ -1518,18 +1518,18 @@ class Molec:
                 fd=open( name, "rt" )
         self.__clean()
         self.__init__()
-        self.size=string.atoi( fd.readline() )
+        self.size=locale.atoi( fd.readline() )
         self.seg_lim=[ 0, self.size ]
         self.seg_lim_size=2
         self.res_lim=[ 0, self.size ]
         self.res_lim_size=2
         m=0
         while( m < self.size ):
-            splt=string.split( fd.readline() )
+            splt=fd.readline().split()
             self.atom.append( splt[0] )
-            self.crd.append( [ string.atof( splt[2] ), \
-                string.atof( splt[3] ), \
-                string.atof( splt[4] ) ] )
+            self.crd.append( [ locale.atof( splt[2] ), \
+                locale.atof( splt[3] ), \
+                locale.atof( splt[4] ) ] )
             self.chrg.append( .0 )
             self.z.append( 0 )
             self.segn.append( "SEGN" )
@@ -1568,7 +1568,7 @@ class Molec:
     # Fill array charges from dynamo or charmm
     # kind: 'sysbin' (dynamo) // 'psf' (charmm)
     def fill_charges( self, fname, kind='sysbin' ):
-        fd=file( fname, 'rb' )
+        fd = open( fname, "rb" )
         for i in range( 6 ):
             fd.read( struct.unpack( 'i', fd.read( 4 ) )[0] + 4 )
         fd.read( 4 )
@@ -1607,8 +1607,7 @@ class Molec:
                 flg=0
                 while( flg == 0 and m < PTable_size ):
                     smb_len=len( PTable_smb[m] )
-                    if( string.upper( self.get_atom( n )[0:smb_len]) == \
-                    string.upper( PTable_smb[m] ) ):
+                    if( self.get_atom( n )[0:smb_len].upper() == PTable_smb[m].upper() ):
                         self.set_z( n, m )
                         flg=1
                     else:
@@ -1625,8 +1624,7 @@ class Molec:
                     flg=0
                     while( flg == 0 and m < PTable_size ):
                         smb_len=len( PTable_smb[m] )
-                        if( string.upper( self.get_atom( n )[0:smb_len])== \
-                        string.upper( PTable_smb[m] ) ):
+                        if( self.get_atom( n )[0:smb_len].upper() == PTable_smb[m].upper() ):
                             self.set_z( n, m )
                             flg=1
                         else:
@@ -1654,7 +1652,7 @@ class Molec:
                     n+=1
             # Replace old segname by the new one
             else:
-                curr_segn=string.split( segn )
+                curr_segn=segn.split()
                 idx=0
                 seg_size=self.seg_lim_size - 1
                 while( idx < seg_size ):
@@ -1681,7 +1679,7 @@ class Molec:
                     n+=1
             # Replace old resname(s) by the new one: loop over all
             else:
-                curr_resn=string.split( resn )
+                curr_resn=resn.split()
                 idx=0
                 res_size=self.res_lim_size - 1
                 while( idx < res_size ):
@@ -1765,7 +1763,7 @@ class Molec:
                         m+=1
         # INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS - INTERNALS
         if( segn != None ):
-            for item in string.split( segn ):
+            for item in segn.split():
                 __norm_resid_segn( self, item, acc )
         else:
             n=0
@@ -1808,7 +1806,7 @@ class Molec:
         fd.write( "%d Atoms, %d Residues, %d Chains\n"% \
             ( self.size, self.res_lim_size - 1, self.seg_lim_size - 1 ) )
         if( segn != None ):
-            for item in string.split( segn ):
+            for item in segn.split():
                 __segn_info( self, item, fd )
         else:
             n=0
@@ -1975,16 +1973,16 @@ class Molec:
         fd=open( conv_tab, "rt" )
         line=fd.readline()
         while( line != "" ):
-            splt=string.split( line )
+            splt=line.split()
             tab_res.append( splt[0] )
             tmp_top=[]
             tmp_mol=[]
             m=0
-            max=string.atoi( splt[1] )
+            max=locale.atoi( splt[1] )
             tab_res_size.append( max )
             while( m < max ):
                 line=fd.readline()
-                splt=string.split( line )
+                splt=line.split()
                 tmp_top.append( splt[0] )
                 if( splt[1] == "#" ):
                     tmp_mol.append( splt[0] )
@@ -2085,7 +2083,7 @@ class Molec:
             if( lo < hi0 ): self.__quicksort( idx, lo, hi0, getval, cmpcall )
 
     def sort( self, getval=None, cmpcall=None ):
-        idx=range( self.size )
+        idx=list(range( self.size))
         self.__quicksort( idx, 0, self.size - 1, getval, cmpcall )
         return( idx )
 
@@ -2309,9 +2307,9 @@ class Sele:
             for n in atom:
                 self.data[n]=mode
         else:
-            segn_lst=string.split( segn )
+            segn_lst=segn.split()
             segn_size=molec.seg_lim_size - 1
-            resn_lst=string.split( resn )
+            resn_lst=resn.split()
             # For each segname, search in the whole molecule
             for curr_segn in segn_lst:
                 seg_idx=0
@@ -2565,24 +2563,24 @@ class ZMat:
             fd=sys.stdin
         else:
             fd=open( name, "rt" )
-        self.set_na( 1, string.atoi( fd.readline() ) )
-        tmp=string.split( fd.readline() )
+        self.set_na( 1, locale.atoi( fd.readline() ) )
+        tmp=fd.readline().split()
         if( len( tmp ) != 2 ): return
-        self.set_na( 2, string.atoi( tmp[0] ) )
-        self.set_nb( 2, string.atoi( tmp[1] ) )
+        self.set_na( 2, locale.atoi( tmp[0] ) )
+        self.set_nb( 2, locale.atoi( tmp[1] ) )
         n=3
         while( n < self.size ):
-            tmp=string.split( fd.readline() )
+            tmp=fd.readline().split()
             if( len( tmp ) != 3 ): return
-            self.set_na( n, string.atoi( tmp[0] ) )
-            self.set_nb( n, string.atoi( tmp[1] ) )
-            self.set_nc( n, string.atoi( tmp[2] ) )
+            self.set_na( n, locale.atoi( tmp[0] ) )
+            self.set_nb( n, locale.atoi( tmp[1] ) )
+            self.set_nc( n, locale.atoi( tmp[2] ) )
             n+=1
         if( fd != sys.stdin ): fd.close()
 
     def import_crd( self, molec, sele_list=None, label=True ):
         if( not sele_list ):
-            sele_list=range( molec.size )
+            sele_list=list(range( molec.size))
         if( self.size == 0 ):
             self.__init__( len( sele_list ) )
         if( label ):
@@ -3001,29 +2999,29 @@ class Topo:
         while( line != "" and  flg == 0 ):
             flg=( line[0:4] == "MASS" )
             if( flg == 0 ): line=fd.readline()
-        splt=string.split( line )
-        conv_tbl=[ splt[2], __z_by_mass( string.atof( splt[3] ) ) ]
+        splt=line.split()
+        conv_tbl=[ splt[2], __z_by_mass( locale.atof( splt[3] ) ) ]
         flg=0
         while( line != "" and flg == 0 ):
             if( line[0:4] == "MASS" ):
-                splt=string.split( line )
+                splt=line.split()
                 conv_tbl.append( splt[2] )
-                conv_tbl.append( __z_by_mass( string.atof( splt[3] ) ) )
+                conv_tbl.append( __z_by_mass( locale.atof( splt[3] ) ) )
             flg=( line[0] == "\n" )
             if( flg == 0 ): line=fd.readline()
         # Start loading residues...
         flg=0
         while( line != "" and flg == 0 ):
             if( line[0:4] == "RESI" or line[0:4] == "PRES" ):
-                splt=string.split( line )
+                splt=line.split()
                 self.resn.append( splt[1] )
                 self.res_lim.append( self.size )
                 self.res_lim_size+=1
             elif( line[0:4] == "ATOM" ):
-                splt=string.split( line )
+                splt=line.split()
                 self.size+=1
                 self.label.append( splt[1] )
-                self.chrg.append( string.atof( splt[3] ) )
+                self.chrg.append( locale.atof( splt[3] ) )
                 try:
                     z=conv_tbl.index( splt[2] )
                 except ValueError:
@@ -3049,43 +3047,43 @@ class Topo:
         # Again takes advantage of non-overflow of string vars... ([0:__])
         flg=0
         while( line != "" and flg == 0 ):
-            flg=( string.upper( line[0:4] ) == "TYPE" )
+            flg=( line[0:4].upper() == "TYPE" )
             line=fd.readline()
         conv_tbl=[]
         flg=0
         while( line != "" and flg == 0 ):
             if( line[0] != "!" ):
-                splt=string.split( line )
+                splt=line.split()
                 if( len( splt ) >= 4 ):
                     conv_tbl.append( splt[0] )
-                    conv_tbl.append( string.atoi( splt[1] ) )
+                    conv_tbl.append( locale.atoi( splt[1] ) )
             line=fd.readline()
-            flg=( string.upper( line[0:3] ) == "END" )
+            flg=( line[0:3].upper() == "END" )
         # Start loadding the OPLS...
         flg=0
         while( line != "" and flg == 0 ):
-            flg=( string.upper( line[0:4] ) == "RESI" )
+            flg=( line[0:4].upper() == "RESI" )
             line=fd.readline()
         flg=0
         while( line!= "" and flg == 0 ):
-            if( string.upper( line[0:4] ) == "RESI" ):
-                self.resn.append( string.split( line )[1] )
+            if( line[0:4].upper() == "RESI" ):
+                self.resn.append( line.split()[1] )
                 self.res_lim.append( self.size )
                 self.res_lim_size+=1
                 line=fd.readline()
                 # Avoid f*cking comments...
                 while( line[0] == "!" ): line=fd.readline()
                 # store the residue length
-                n=string.atoi( string.split( line )[0] )
+                n=locale.atoi( line.split()[0] )
                 self.size+=n
                 m=0
                 while( m < n ):
                     line=fd.readline()
                     # Avoid f*cking comments...
                     while( line[0] == "!" ): line=fd.readline()
-                    splt=string.split( line )
+                    splt=line.split()
                     self.label.append( splt[0] )
-                    self.chrg.append( string.atof( splt[2] ) )
+                    self.chrg.append( locale.atof( splt[2] ) )
                     try:
                         w=conv_tbl.index( splt[1] )
                     except ValueError:
@@ -3093,7 +3091,7 @@ class Topo:
                     else:
                         self.z.append( conv_tbl[w + 1] )
                     m+=1
-            flg=( string.upper( line[0:3] ) == "END" )
+            flg=( line[0:3].upper() == "END" )
             line=fd.readline()
         self.res_lim.append( self.size )
         self.res_lim_size+=1
@@ -3156,7 +3154,7 @@ class Topo:
                 # --------------------------------------------------------------------
             r_n+=1
         # Apply Terminals... Not full checking done...
-        splt=string.split( term )
+        splt=term.split()
         ts=len(splt)
         if( ts > 0 ):
             n=0
@@ -3712,9 +3710,9 @@ def PolyFit( vx, vy, order, method="G" ):
         n+=1
     del tmp_sums
     # Resolve the system 
-    if( string.upper( method ) == "I" ):
+    if( method.upper() == "I" ):
         coeff=mat.solinv( ind )
-    elif( string.upper( method ) == "C" ):
+    elif( method.upper() == "C" ):
         coeff=mat.cramer( ind )
     else:
         coeff=mat.gauss_jordan( ind )
@@ -3780,7 +3778,7 @@ class VMD:
             os.mkfifo( self.VMD_PIPE )
         except OSError:
             sys.stderr.write( "* Pipe already exists !?!?\n" )
-        fd=file( self.VMD_EXEC, "wt" )
+        fd = open( self.VMD_EXEC, "wt" )
         fd.write( "#!/usr/bin/bash\nexport VMDDIR=/usr/local/Chem/vmd-1.8.2\nexport VMDDISPLAYDEVICE=win\nexport VMDSCRHEIGHT=6.0\nexport VMDSCRDIST=-2.0\nexport VMDTITLE=off\nexport VMDSCRPOS=\"0 0\"\nexport VMDSCRSIZE=\"704 576\"\nexport VMD_WINGEOM=\"-geometry 80x11-0-0\"\nexport TCL_LIBRARY=$VMDDIR/lib/tcl\nexport TK_LIBRARY=$VMDDIR/lib/tk\nexport PYTHONHOME=$VMDDIR\nexport PYTHONPATH=$VMDDIR/scripts/python:$PYTHONPATH\nexport BABEL_DIR=/usr/local/Chem/babel-1.6\nexport VMDBABELBIN=$BABEL_DIR\nexport STRIDE_BIN=$VMDDIR/stride_LINUX\nexport SURF_BIN=$VMDDIR/surf_LINUX\nexport TACHYON_BIN=$VMDDIR/tachyon_LINUX\n$VMDDIR/vmd_LINUX -e %s > /dev/null"%( self.VMD_PIPE ) )
         fd.close()
         os.chmod( self.VMD_EXEC, stat.S_IRWXU )
