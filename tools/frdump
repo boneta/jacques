@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 # Description: Dump frames from a dcd trajectory
-# Last update: 16-05-2022
+# Last update: 07-09-2022
 
 import sys
 import argparse
 
-import ecmb
+from ecmb import Molec
 
 
 # Parser
@@ -24,21 +24,19 @@ parser.add_argument('--basename', metavar='<>', type=str,
 args = parser.parse_args()
 
 frames = set(args.fr)
+frames_max = max(frames)
 basename = args.basename
 
 # read system
-m = ecmb.Molec()
-m.load_crd( args.crd )
-m.dcd_read( args.dcd )
+m = Molec()
+m.load_crd(args.crd)
+m.dcd_read(args.dcd)
 
 # dump specified frames
 n_dcd = 0
-while( m.dcd_next() ):
-    n_dcd+=1
+while m.dcd_next() and n_dcd <= frames_max:
+    n_dcd += 1
     if n_dcd in frames:
         outfile=f"{basename}{n_dcd}.crd"
         m.save_crd(outfile)
         sys.stdout.write(f"{n_dcd} --> {outfile} \n")
-        # exit if last frame
-        if n_dcd == max(frames):
-            sys.exit(0)
