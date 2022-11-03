@@ -27,7 +27,7 @@
 
 """
 
-__version__ = '0.5.2'
+__version__ = '0.5.3'
 
 
 ##  DEPENDENCIES  #####################################################
@@ -35,7 +35,7 @@ __version__ = '0.5.2'
 import os
 from copy import deepcopy
 
-from pymol import cmd, importing, CmdException
+from pymol import cmd, importing, plugins, CmdException
 from chempy import atomic_number, Atom
 from chempy.models import Indexed
 from chempy.protein_residues import normal as aa_dict
@@ -422,3 +422,9 @@ cmd.extend("write_qm", write_qm)
 cmd.extend("write_nofix", write_nofix)
 cmd.load = load_ext
 cmd.extend("load", cmd.load)
+
+
+##  GUI  ##############################################################
+def __init_plugin__(app=None):
+    """Add an entry to the PyMOL 'Plugin' menu"""
+    plugins.addmenuitemqt("pyDYNAMON", lambda: print(f"  pyDYNAMON: {__version__}"))
