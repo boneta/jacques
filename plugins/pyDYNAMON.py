@@ -23,17 +23,18 @@
 
 
   by Sergio Boneta Martinez
-  GPLv3 2021
+  GPLv3 2021-2023
 
 """
 
-__version__ = '0.5.3'
+__version__ = '0.5.4'
 
 
 ##  DEPENDENCIES  #####################################################
 
 import os
 from copy import deepcopy
+from textwrap import dedent
 
 from pymol import cmd, importing, plugins, CmdException
 from chempy import atomic_number, Atom
@@ -45,14 +46,16 @@ from chempy.protein_residues import normal as aa_dict
 
 class DynnConfigSele():
     """
+    DESCRIPTION
+
         DYNAMON configuration class - Selection oriented
 
-        Attributes
-        ----------
-        selection : dict
-            'sele_name' : dict
-                'segi' : dict
-                    'resi' : list
+    ATTRIBUTES
+
+        selection = dict
+            'sele_name' = dict
+                'segi' = dict
+                    'resi' = list
     """
 
     def __init__(self):
@@ -61,12 +64,13 @@ class DynnConfigSele():
 
     def read_selection(self, filename):
         """
+        DESCRIPTION
+
             Read selection blocks from .dynn file
 
-            Parameters
-            ----------
-            filename : str
-                file to read selection
+        ARGUMENTS
+
+            filename = string: file to read selection
         """
 
         # check file exists
@@ -109,14 +113,15 @@ class DynnConfigSele():
 
     def write_selection(self, filename, resolution='atom'):
         """
+        DESCRIPTION
+
             Write selection blocks to .dynn file
 
-            Parameters
-            ----------
-            filename : str
-                file to create/append and write selection
-            resolution : {'atom', 'residue', 'subsystem'}, optional
-                minimum entity size to treat not whole at writting (def: 'atom')
+        ARGUMENTS
+
+            filename = string: file to create/append and write selection
+
+            resolution = 'atom'/'residue'/'subsystem' : minimum entity size to treat no-whole when writting {default: 'atom'}
         """
 
         if not self.selection:
@@ -147,19 +152,32 @@ class DynnConfigSele():
 
 def write_sele(filename, selection_name='', selection='sele', resolution='atom'):
     """
+    DESCRIPTION
+
         Append selection to file and overwrite section if existing
 
-        Parameters
-        ----------
-        filename : str
-            file to create/append and write selection
-        selection_name : str, optional
-            name of selection to write (i.e. 'QM'/'NOFIX')
-            default taken from selection argument
-        selection : str, optional
-            name of a PyMOL selection object (def: 'sele')
-        resolution : {'atom', 'residue', 'subsystem'}, optional
-            minimum entity size to treat not whole at writting (def: 'atom')
+    USAGE
+
+        write_sele filename [, selection_name [, selection [, resolution ]]]
+
+    ARGUMENTS
+
+        filename = string: file path to create/append and write selection
+
+        selection_name = string: name of selection to write (i.e. 'QM'/'NOFIX') {default: taken from selection argument}
+
+        selection = string: name of a PyMOL selection object {default: 'sele'}
+
+        resolution = 'atom'/'residue'/'subsystem' : minimum entity size to treat no-whole when writting {default: 'atom'}
+    
+    EXAMPLES
+
+        write_sele protein.dynn
+        write_sele protein.dynn, QM, QM
+
+    SEE ALSO
+
+        write_qm, write_nofix
     """
 
     selection_name = selection_name.upper() or selection.upper()
@@ -197,12 +215,13 @@ def write_sele(filename, selection_name='', selection='sele', resolution='atom')
 
 def load_dynn(filename):
     """
+    DESCRIPTION
+
         Load a DYNAMON selection file and read QM/NOFIX to sele objects
 
-        Parameters
-        ----------
-        filename : str
-            file to read selection
+    ARGUMENTS
+        
+        filename = string: file path
     """
 
     # check file exists
@@ -240,6 +259,8 @@ def load_dynn(filename):
 
 def load_ff(filename):
     """
+    DESCRIPTION
+
         Load a fDynamo force field file (.ff)
 
         Re-bond ligands accordingly
@@ -247,10 +268,9 @@ def load_ff(filename):
          - 'text_type' : atomtypes
          - 'partial_charges' : charges
 
-        Parameters
-        ----------
-        filename : str
-            file path
+    ARGUMENTS
+    
+        filename = string: file path
     """
 
     print(f" pyDYNAMON: reading \"{filename}\"")
@@ -318,14 +338,15 @@ def load_ff(filename):
 
 def load_crd(filename, object=''):
     """
+    DESCRIPTION
+
         Load a fDynamo coordinates file (.crd)
 
-        Parameters
-        ----------
-        filename : str
-            file path
-        object : str, optional
-            name of the object (def: filename prefix)
+    ARGUMENTS
+
+        filename = string: file path
+
+        object = string: name of the new object {default: file basename}
     """
 
     if not object:
@@ -369,18 +390,17 @@ def load_ext(filename, object='', state=0, format='', finish=1,
              discrete=-1, quiet=1, multiplex=None, zoom=-1, partial=0,
              mimic=1, object_props=None, atom_props=None, *, _self=cmd):
         """
-            Wrapper to load function with extended funtionality
+        REMARK
 
-            Formats
-            -------
+            This is a wrapper to load function with extended funtionality
+            for fDynamo's files.
+
             .ff
                 fDynamo's force field file
             .crd
                 fDynamo's coordinates file
             .dynn
                 DYNAMON options/selection file
-            .*
-                default supported by PyMOL
         """
 
         if not format:
@@ -403,15 +423,63 @@ def load_ext(filename, object='', state=0, format='', finish=1,
             importing.load(filename, object, state, format, finish,
                            discrete, quiet, multiplex, zoom, partial)
 
+load_ext.__doc__ = importing.load.__doc__ + dedent(load_ext.__doc__)
+
 
 ##  WRAPPERS  #########################################################
 
 def write_qm(filename, selection="sele"):
-    """Write QM atom selection to file"""
+    """
+    DESCRIPTION
+
+        Write QM atom selection to a file
+
+    USAGE
+
+        write_qm filename [, selection]
+    
+    ARGUMENTS
+
+        filename = string: file path to create/append and write selection
+
+        selection = string: name of a PyMOL selection object {default: 'sele'}
+
+    EXAMPLES
+
+        write_qm protein.dynn
+        write_qm protein.dynn, QM
+    
+    SEE ALSO
+
+        write_sele, write_nofix
+    """
     write_sele(filename, "QM", selection, resolution='atom')
 
 def write_nofix(filename, selection="sele"):
-    """Write NOFIX residue selection to file"""
+    """
+    DESCRIPTION
+
+        Write NOFIX residue selection to a file
+
+    USAGE
+
+        write_nofix filename [, selection]
+
+    ARGUMENTS
+
+        filename = string: file path to create/append and write selection
+
+        selection = string: name of a PyMOL selection object {default: 'sele'}
+
+    EXAMPLES
+
+        write_nofix protein.dynn
+        write_nofix protein.dynn, NOFIX
+
+    SEE ALSO
+
+        write_sele, write_qm
+    """
     write_sele(filename, "NOFIX", selection, resolution='residue')
 
 
