@@ -331,11 +331,17 @@ def load_ff(filename):
         for name, param in top['atoms'].items():
             cmd.alter(f"resn {resname} & name {name}", f"partial_charge={param['charge']}")
             cmd.alter(f"resn {resname} & name {name}", f"text_type=\'{param['atomtype']}\'")
-        # unbond all and re-bond
+        # unbond all
         if resname in rebond_excluded: continue
         cmd.unbond(f"resn {resname}", f"resn {resname}")
-        for bond in top['bonds']:
-            cmd.bond(f"resn {resname} & name {bond[0]}", f"resn {resname} & name {bond[1]}")
+        # re-bond by individual residues
+        resn_model = cmd.get_model(f"resn {resname}")
+        for atom_at_residues in resn_model.get_residues():
+            ndx_first = resn_model.atom[atom_at_residues[0]].index
+            ndx_last = resn_model.atom[atom_at_residues[1]-1].index
+            for bond in top['bonds']:
+                cmd.bond(f"resn {resname} & name {bond[0]} & index {ndx_first}-{ndx_last}",
+                         f"resn {resname} & name {bond[1]} & index {ndx_first}-{ndx_last}")
 
 def load_crd(filename, object=''):
     """
