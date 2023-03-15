@@ -34,6 +34,7 @@ __version__ = '0.5.4'
 
 import os
 from copy import deepcopy
+from glob import glob
 from textwrap import dedent
 
 from pymol import cmd, importing, plugins, CmdException
@@ -484,6 +485,15 @@ def write_nofix(filename, selection="sele"):
 
 
 ##  PYMOL FUNCTIONS  ##################################################
+# auto-completion
+cmd.auto_arg[0]['write_sele'] = [lambda: cmd.Shortcut(glob('*.dynn')), 'filename', ', ']
+cmd.auto_arg[1]['write_sele'] = [cmd.selection_sc, 'selection_name', ', ']
+cmd.auto_arg[2]['write_sele'] = [cmd.selection_sc, 'selection', ', ']
+cmd.auto_arg[3]['write_sele'] = [lambda: cmd.Shortcut(['atom', 'residue', 'subsystem']), 'resolution', '']
+cmd.auto_arg[0]['write_qm'] = [lambda: cmd.Shortcut(glob('*.dynn')), 'filename', ', ']
+cmd.auto_arg[1]['write_qm'] = [cmd.selection_sc, 'selection', '']
+cmd.auto_arg[0]['write_nofix'] = [lambda: cmd.Shortcut(glob('*.dynn')), 'filename', ', ']
+cmd.auto_arg[1]['write_nofix'] = [cmd.selection_sc, 'selection', '']
 # add functions to PyMOL run environment
 cmd.extend("write_sele", write_sele)
 cmd.extend("write_qm", write_qm)
