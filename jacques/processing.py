@@ -117,7 +117,7 @@ def post(dynnconfig:'DynnConfig', rm:bool=True) -> None:
         remove files after processing (def: True)
     '''
 
-    mode_filetypes = {'scan': ('crd'),
+    mode_filetypes = {'scan': ('crd',),
                       'pes': ('log', 'out', 'crd'),
                       'pmf': ('log', 'out', 'crd', 'dat')}
 
