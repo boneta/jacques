@@ -24,18 +24,33 @@ from .dynnconfig import DynnConfig
 from .outfile import OutFile
 
 
-def _natural_sort(l) -> list:
+def _natural_sort(l:list) -> list:
     '''Sort a list by natural order'''
     alphanum_key = lambda key: [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', key)]
     return sorted(l, key=alphanum_key)
 
-def _progress_bar(name, n, n_tot, bar_length=21) -> None:
+def _progress_bar(name:str, n:int, n_tot:int, bar_length:int=21) -> None:
+    '''Display a progress bar at a given step'''
     sys.stdout.write("\r# {}s  [{:21s}] - {:>6.2f}%".format(name,
                                                             "■"*int(bar_length*(n+1)/n_tot),
                                                             (n+1)/n_tot*100))
     sys.stdout.flush()
 
-def post_log(files:list, file_final, rm=True, progress_bar=True) -> None:
+def post_log(files:list, file_final:str, rm:bool=True, progress_bar:bool=True) -> None:
+    '''
+        Post-Processing routine for .log files
+
+        Parameters
+        ----------
+        files : list
+            list of .log files
+        file_final : str
+            name of sorted .log file to write
+        rm : bool, optional
+            remove files after processing (def: True)
+        progress_bar : bool, optional
+            display progress bar (def: True)
+    '''
     if file_final in files:
         files.remove(file_final)  # remove final file from file lists
     f_final = open(file_final, 'a+')
@@ -49,7 +64,7 @@ def post_log(files:list, file_final, rm=True, progress_bar=True) -> None:
             _progress_bar("LOG", n, len(files))
     f_final.close()
 
-def post_out(files, file_final=None, dynnconfig=None, rm=True) -> list:
+def post_out(files:list, file_final:str=None, dynnconfig:'DynnConfig'=None, rm:bool=True) -> list:
     '''
         Post-Processing routine for .out files
 
@@ -89,7 +104,19 @@ def post_out(files, file_final=None, dynnconfig=None, rm=True) -> list:
             os.remove(f)
     return missing_ndx
 
-def post_crd(files:list, folder='crd', progress_bar=True) -> None:
+def post_crd(files:list, folder:str='crd', progress_bar:bool=True) -> None:
+    '''
+        Post-Processing routine for .crd files
+
+        Parameters
+        ----------
+        files : list
+            list of .crd files
+        folder : str, optional
+            name of folder to move .crd files to (def: 'crd')
+        progress_bar : bool, optional
+            display progress bar (def: True)
+    '''
     if not os.path.isdir(folder):
         os.mkdir(folder)
     for n, f in enumerate(files):
@@ -97,7 +124,19 @@ def post_crd(files:list, folder='crd', progress_bar=True) -> None:
         if progress_bar:
             _progress_bar("CRD", n, len(files))
 
-def post_dat(files:list, folder='dat', progress_bar=True) -> None:
+def post_dat(files:list, folder:str='dat', progress_bar:bool=True) -> None:
+    '''
+        Post-Processing routine for .dat files
+
+        Parameters
+        ----------
+        files : list
+            list of .dat files
+        folder : str, optional
+            name of folder to move .dat files to (def: 'dat')
+        progress_bar : bool, optional
+            display progress bar (def: True)
+    '''
     if not os.path.isdir(folder):
         os.mkdir(folder)
     for n, f in enumerate(files):
@@ -107,14 +146,14 @@ def post_dat(files:list, folder='dat', progress_bar=True) -> None:
 
 def post(dynnconfig:'DynnConfig', rm:bool=True) -> None:
     '''
-    Post-Processing routine after a DYNAMON calculation
+        Post-Processing routine after a DYNAMON calculation
 
-    Parameters
-    ----------
-    dynnconfig : DynnConfig
-        DynnConfig object
-    rm : bool, optional
-        remove files after processing (def: True)
+        Parameters
+        ----------
+        dynnconfig : DynnConfig
+            DynnConfig object
+        rm : bool, optional
+            remove files after processing (def: True)
     '''
 
     mode_filetypes = {'scan': ('crd',),
