@@ -21,7 +21,7 @@ from .dynnconfig import DynnConfig
 from .queues import JobFile
 
 
-def _natural_sort(l) -> list:
+def _natural_sort(l:list) -> list:
     '''Sort a list by natural order'''
     alphanum_key = lambda key: [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', key)]
     return sorted(l, key=alphanum_key)
@@ -77,7 +77,7 @@ def launch_calc(dynnconfig:'DynnConfig') -> None:
             if hasattr(config, 'irc_both_dir'):
                 routine = f"mkdir -p {config.name}\ncd {config.name}\n"
                 if os.path.isfile("update.dump"):
-                    routine += f"cp ../update.dump {config.name}/\n"
+                    routine += f"cp ../update.dump .\n"
                 routine += f"{config.opt['exe']} ../{config.dynn0} --NAME {config.name} --IRC_DIR {config.opt['irc_dir']} > {config.name}.log\n"
             # normal (just run)
             else:
