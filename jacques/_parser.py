@@ -139,16 +139,24 @@ def parser(mode=None) -> 'argparse.Namespace':
         h+=" --irc_dir  {-1,0,1}               initial direction to follow or both (0)\n"
         h+=" --irc_steps  <int>                maximum number of steps\n"
         h+=" --irc_dsp  <float>                displacement on every step\n\n"
+        h+=" IRC POST-PROCESSING:\n"
+        h+=" --irc_invert                      invert the direction of the IRC found\n"
+        h+=" --irc_dat  <.dat>                 unified reaction profile file to write\n"
+        h+=" --irc_crd  <str>                  extract the IRC coordinates as .crd in this folder\n"
+        h+="                                   coord is needed, more control with dcd_stride\n\n"
     p.add_argument('--irc_dir', type=int, choices=[-1,0,1])
     p.add_argument('--irc_steps', type=int)
     p.add_argument('--irc_dsp', type=float)
+    p.add_argument('--irc_invert', action='store_true')
+    p.add_argument('--irc_dat', type=str)
+    p.add_argument('--irc_crd', type=str)
 
     #  INTERACTION  ---------------------------------------------------
     if mode in ('interaction'):
         h+=" {}:\n".format(mode.upper())
         h+=" --dcd_stride  <int>               read only every n-th frame of the trajectory\n"
         h+=" --int_dcd  <.dcd>                 trajectory file along which calculate interactions\n\n"
-    p.add_argument('--dcd_stride', type=int)
+    p.add_argument('--dcd_stride', type=int, default=1)
     p.add_argument('--int_dcd', type=str)
 
     #  KIE  -----------------------------------------------------------
@@ -184,8 +192,8 @@ def parser(mode=None) -> 'argparse.Namespace':
     p.add_argument('-d', '--dim', type=int, default=0)
 
     # post-process
-    if mode in ('scan', 'pes', 'pmf', 'corr'):
-        h+=" -p | --post                       post-process routine after calculation\n\n"
+    if mode in ('scan', 'pes', 'pmf', 'corr', 'irc'):
+        h+=" -p | --post                       perform post-process routine for after calculation instead of launching\n\n"
     p.add_argument('-p', '--post', action='store_true')
 
     #  VERSION AND HELP  ----------------------------------------------

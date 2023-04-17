@@ -10,6 +10,7 @@
     post_out
     post_crd
     post_dat
+    post_irc
     post
 
 """
@@ -20,8 +21,14 @@ import re
 import shutil
 import sys
 
+import numpy as np
+
 from .dynnconfig import DynnConfig
 from .outfile import OutFile
+try:
+    from ecmb import Molec
+except ImportError:
+    Molec = None
 
 
 def _natural_sort(l:list) -> list:
@@ -144,6 +151,78 @@ def post_dat(files:list, folder:str='dat', progress_bar:bool=True) -> None:
         if progress_bar:
             _progress_bar("DAT", n, len(files))
 
+def post_irc(name:str, invert:bool=False, irc_dat:str=None, irc_crd:str=None, coord:str=None, stride:int=1, progress_bar:bool=True) -> None:
+    '''
+        Post-Processing routine for IRC calculations
+
+        Parameters
+        ----------
+        name : str
+            name of IRC calculation (used to look up folders and files)
+        invert : bool, optional
+            invert the direction of the IRC found (def: False)
+        irc_dat : str, optional
+            name of unified reaction profile file to write (.dat)
+        irc_crd : str, optional
+            folder to extract IRC coordinates to as .crd files
+        coord : str, optional
+            coordinates file to get topology from (.crd)
+        stride : int, optional
+            stride to use when extracting IRC coordinates (def: 1)
+        progress_bar : bool, optional
+            display progress bar (def: True)
+    '''
+    # define folders/files
+    irc_for = f"{name}-FOR"
+    irc_back = f"{name}-BACK"
+    for f in (irc_for, irc_back):
+        if not os.path.isdir(f):
+            sys.exit(f"ERROR: Folder '{f}' not found")
+
+    # unify reaction profile (.dat)
+    if irc_dat:
+        sys.stdout.write(f"\r# Unified reaction profile:  {irc_dat}\n")
+        dat_files = [f"{irc_back}/{irc_back}.dat", f"{irc_for}/{irc_for}.dat"]
+        dat_data = []
+        for f in dat_files:
+            if not os.path.isfile(f):
+                sys.exit(f"ERROR: File '{f}' not found")
+            dat_data.append(np.loadtxt(f))
+        dat_data = np.dstack(dat_data).swapaxes(0, 2)
+        dat_data[:,0,:] += 1        # start index at 1
+        if invert:
+            dat_data = np.flip(dat_data, axis=0)
+        dat_data[0] = np.flip(dat_data[0], axis=1)  # reverse the back
+        dat_data[0,0,:] *= -1                       # negative index for back
+        dat_data = np.hstack(dat_data).T
+        np.savetxt(irc_dat, dat_data, fmt=' %6d    %f')
+
+    # extract IRC coordinates (.crd)
+    if irc_crd and coord:
+        sys.stdout.write(f"\r# Extracting IRC coordinates to '{irc_crd}'\n")
+        if not Molec:
+            sys.exit("ERROR: 'ecmb' could not be imported. Aborting extract IRC coordinates.")
+        dcd_files = [f"{irc_back}/{irc_back}.dcd", f"{irc_for}/{irc_for}.dcd"]
+        if invert:
+            dcd_files = dcd_files[::-1]
+        os.makedirs(irc_crd, exist_ok=True)
+        n_frame = 0
+        for f in dcd_files:
+            m = Molec()
+            m.load_crd(coord)
+            m.dcd_read(f"{irc_back}/{irc_back}.dcd")
+            n_frames = m.dcd_nframe
+            m.dcd_next()
+            n = 0
+            while m.dcd_next():
+                n += 1
+                if n % stride == 0:
+                    n_frame += 1
+                    m.save_crd(f"{irc_crd}/{name}-{n_frame:d}.crd")
+                    if progress_bar:
+                        _progress_bar("CRD", n_frame, (n_frames//stride)*2)
+        sys.stdout.write(f"\r{' ':<80}\n\n")
+
 def post(dynnconfig:'DynnConfig', rm:bool=True) -> None:
     '''
         Post-Processing routine after a DYNAMON calculation
@@ -158,7 +237,8 @@ def post(dynnconfig:'DynnConfig', rm:bool=True) -> None:
 
     mode_filetypes = {'scan': ('crd',),
                       'pes': ('log', 'out', 'crd'),
-                      'pmf': ('log', 'out', 'crd', 'dat')}
+                      'pmf': ('log', 'out', 'crd', 'dat'),
+                      'irc': None}
 
     mode = dynnconfig.mode
     name = dynnconfig.name
@@ -169,6 +249,18 @@ def post(dynnconfig:'DynnConfig', rm:bool=True) -> None:
     elif mode not in mode_filetypes.keys():
         sys.exit(f"WARNING: No post-process routine for this mode '{mode}'. Nothing to do.")
 
+    sys.stdout.write(f"## POST-PROCESS: {mode}\n# NAME: {name}\n\n")
+
+    # irc post-processing
+    if mode == 'irc':
+        post_irc(name,
+                 dynnconfig.opt['irc_invert'],
+                 dynnconfig.opt['irc_dat'],
+                 dynnconfig.opt['irc_crd'],
+                 dynnconfig.opt['coord'],
+                 dynnconfig.opt['dcd_stride'])
+        return
+
     # list of files to process in natural order
     filetypes = mode_filetypes[mode]
     dir_files = dict()
@@ -178,8 +270,6 @@ def post(dynnconfig:'DynnConfig', rm:bool=True) -> None:
         elif filetype == 'dat':
             file_pattern = f"{filetype}_*"
         dir_files[filetype] = _natural_sort(glob.glob(file_pattern))
-
-    sys.stdout.write(f"## POST-PROCESS: {mode}\n# NAME: {name}\n\n")
 
     for filetype in filetypes:
         # check no files matching
