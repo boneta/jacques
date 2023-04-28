@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 # Description: Dump frames from a dcd trajectory
-# Last update: 07-09-2022
+# Last update: 28-04-2023
 
 import sys
 import argparse
 
-from ecmb import Molec
+from pdb4all import Traj
 
 
 # Parser
@@ -23,20 +23,15 @@ parser.add_argument('--basename', metavar='<>', type=str,
                     default='fr-')
 args = parser.parse_args()
 
-frames = set(args.fr)
-frames_max = max(frames)
-basename = args.basename
-
 # read system
-m = Molec()
-m.load_crd(args.crd)
-m.dcd_read(args.dcd)
+m = Traj()
+m.read_dcd(args.dcd, args.crd)
 
 # dump specified frames
-n_dcd = 0
-while m.dcd_next() and n_dcd <= frames_max:
-    n_dcd += 1
-    if n_dcd in frames:
-        outfile=f"{basename}{n_dcd}.crd"
-        m.save_crd(outfile)
-        sys.stdout.write(f"{n_dcd} --> {outfile} \n")
+for n in sorted(args.fr):
+    if n > m.nframes:
+        sys.stderr.write(f"WARNING: Skipping frame {n} greater than trajectory ({m.nframes})\n")
+        continue
+    filename = f"{args.basename}{n}.crd"
+    m.nframe(n).write_crd(filename)
+    sys.stdout.write(f"{n} --> {filename} \n")
