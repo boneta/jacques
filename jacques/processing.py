@@ -148,7 +148,7 @@ def post_dat(files:list, folder:str='dat', progress_bar:bool=True) -> None:
         if progress_bar:
             _progress_bar("DAT", n, len(files))
 
-def post_irc(name:str, invert:bool=False, irc_dat:str=None, irc_crd:str=None, coord:str=None, num_coord:int=100, progress_bar:bool=True) -> None:
+def post_irc(name:str, invert:bool=False, irc_dat:str=None, irc_crd:str=None, coord:str=None, irc_steps:int=-1, progress_bar:bool=True) -> None:
     '''
         Post-Processing routine for IRC calculations
 
@@ -164,9 +164,9 @@ def post_irc(name:str, invert:bool=False, irc_dat:str=None, irc_crd:str=None, co
             folder to extract IRC coordinates to as .crd files
         coord : str, optional
             coordinates file to get topology from (.crd)
-        num_coord : int, optional
-            number of coordinates to extract on each side, geometrically spaced from the TS (def: 100)
-            use -1 to extract all coordinates
+        irc_steps : int, optional
+            number of coordinates to extract in total, geometrically spaced from the TS
+            use -1 to extract all coordinates (def: -1)
         progress_bar : bool, optional
             display progress bar (def: True)
     '''
@@ -211,6 +211,7 @@ def post_irc(name:str, invert:bool=False, irc_dat:str=None, irc_crd:str=None, co
     # extract IRC coordinates (.crd)
     if irc_crd and coord:
         sys.stdout.write(f"\r# Extracting IRC coordinates to '{irc_crd}'\n")
+        num_coord = -1 if irc_steps == -1 else int(irc_steps/2)
         dcd_files = [f"{irc_back}/{irc_back}.dcd", f"{irc_for}/{irc_for}.dcd"]
         if invert:
             dcd_files = dcd_files[::-1]
@@ -225,7 +226,7 @@ def post_irc(name:str, invert:bool=False, irc_dat:str=None, irc_crd:str=None, co
             if nside == 1:
                 traj.frames_xyz = traj.frames_xyz[::-1]
             for i, frame in zip(range(ncrd, num_coord_side+ncrd), traj):
-                frame.write_crd(f"{irc_crd}/{name}-{i:d}.crd")
+                frame.write_crd(f"{irc_crd}/{name}.{i:d}.crd")
                 if progress_bar:
                     _progress_bar(f"CRD-{nside}", i-ncrd, num_coord_side)
             ncrd += num_coord_side
@@ -266,7 +267,7 @@ def post(dynnconfig:'DynnConfig', rm:bool=True) -> None:
                  dynnconfig.opt['irc_dat'],
                  dynnconfig.opt['irc_crd'],
                  dynnconfig.opt['coord'],
-                 dynnconfig.opt['irc_ncrd'])
+                 dynnconfig.opt['irc_steps'])
         return
 
     # list of files to process in natural order

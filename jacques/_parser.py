@@ -143,21 +143,20 @@ def parser(mode=None) -> 'argparse.Namespace':
         h+=" --irc_invert                      invert the direction of the IRC found\n"
         h+=" --irc_dat  <.dat>                 unified reaction profile file to write\n"
         h+=" --irc_crd  <str>                  extract the IRC coordinates as .crd in this folder ('coord' needed)\n"
-        h+=" --irc_ncrd  <int>                 number of coordinates to extract by each side (default: 100)\n\n"
+        h+="                                   number of coordinates to extract is taken from 'irc_steps', use '-1' to extract all \n\n"
     p.add_argument('--irc_dir', type=int, choices=[-1,0,1])
     p.add_argument('--irc_steps', type=int)
     p.add_argument('--irc_dsp', type=float)
     p.add_argument('--irc_invert', action='store_true')
     p.add_argument('--irc_dat', type=str)
     p.add_argument('--irc_crd', type=str)
-    p.add_argument('--irc_ncrd', type=int, default=100)
 
     #  INTERACTION  ---------------------------------------------------
     if mode in ('interaction'):
         h+=" {}:\n".format(mode.upper())
         h+=" --dcd_stride  <int>               read only every n-th frame of the trajectory\n"
         h+=" --int_dcd  <.dcd>                 trajectory file along which calculate interactions\n\n"
-    p.add_argument('--dcd_stride', type=int, default=1)
+    p.add_argument('--dcd_stride', type=int)
     p.add_argument('--int_dcd', type=str)
 
     #  KIE  -----------------------------------------------------------

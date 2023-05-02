@@ -79,7 +79,7 @@ class DynnConfig:
         'pbc',
         'loc_steps', 'loc_tolerance', 'ts',
         'irc_dir', 'irc_steps', 'irc_dsp',
-        'irc_invert', 'irc_dat', 'irc_crd', 'irc_ncrd',
+        'irc_invert', 'irc_dat', 'irc_crd',
         'dcd_stride', 'int_dcd', 'int_wbox', 'int_ions',
         'kie_atomn', 'kie_skip', 'kie_mass', 'kie_hess',
 
@@ -341,7 +341,7 @@ class DynnConfig:
         if self.dim == 0:
             self.dim = self.nconstr
 
-    def resolve_constr(self, n_constr=None, step=0.05):       #TODO: take dcrd as dinit
+    def resolve_constr(self, n_constr=None, step=0.05):
         '''
             Resolve the iteration parameters for the
             first nth constraint: n, dinit, step & dend
@@ -349,6 +349,8 @@ class DynnConfig:
             At least three are needed to resolve the fourth,
             altough 'step' can be taken from default.
             In case of conflict, 'step' is overwritten.
+
+            If 'dcrd' is set, that constraint is skipped.
 
             Parameters
             ----------
@@ -372,7 +374,9 @@ class DynnConfig:
             # default step
             if not c['step']: c['step'] = step
             # check enough defined parameters to solve
-            if (c['dinit'], c['dend'], c['n']).count(None) > 1:
+            if c['dcrd']:
+                continue
+            elif (c['dinit'], c['dend'], c['n']).count(None) > 1:
                 raise ValueError(f"Not enough parameters specified to resolve constraint {nth+1}")
             # dinit & dend -> n [& step]
             if c['dinit'] and c['dend']:
