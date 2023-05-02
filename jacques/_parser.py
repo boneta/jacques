@@ -142,14 +142,15 @@ def parser(mode=None) -> 'argparse.Namespace':
         h+=" IRC POST-PROCESSING:\n"
         h+=" --irc_invert                      invert the direction of the IRC found\n"
         h+=" --irc_dat  <.dat>                 unified reaction profile file to write\n"
-        h+=" --irc_crd  <str>                  extract the IRC coordinates as .crd in this folder\n"
-        h+="                                   coord is needed, more control with dcd_stride\n\n"
+        h+=" --irc_crd  <str>                  extract the IRC coordinates as .crd in this folder ('coord' needed)\n"
+        h+=" --irc_ncrd  <int>                 number of coordinates to extract by each side (default: 100)\n\n"
     p.add_argument('--irc_dir', type=int, choices=[-1,0,1])
     p.add_argument('--irc_steps', type=int)
     p.add_argument('--irc_dsp', type=float)
     p.add_argument('--irc_invert', action='store_true')
     p.add_argument('--irc_dat', type=str)
     p.add_argument('--irc_crd', type=str)
+    p.add_argument('--irc_ncrd', type=int, default=100)
 
     #  INTERACTION  ---------------------------------------------------
     if mode in ('interaction'):

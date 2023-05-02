@@ -79,7 +79,7 @@ class DynnConfig:
         'pbc',
         'loc_steps', 'loc_tolerance', 'ts',
         'irc_dir', 'irc_steps', 'irc_dsp',
-        'irc_invert', 'irc_dat', 'irc_crd',
+        'irc_invert', 'irc_dat', 'irc_crd', 'irc_ncrd',
         'dcd_stride', 'int_dcd', 'int_wbox', 'int_ions',
         'kie_atomn', 'kie_skip', 'kie_mass', 'kie_hess',
 

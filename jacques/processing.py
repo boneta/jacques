@@ -22,13 +22,10 @@ import shutil
 import sys
 
 import numpy as np
+from pdb4all import PDB, Traj
 
 from .dynnconfig import DynnConfig
 from .outfile import OutFile
-try:
-    from ecmb import Molec
-except ImportError:
-    Molec = None
 
 
 def _natural_sort(l:list) -> list:
@@ -38,7 +35,7 @@ def _natural_sort(l:list) -> list:
 
 def _progress_bar(name:str, n:int, n_tot:int, bar_length:int=21) -> None:
     '''Display a progress bar at a given step'''
-    sys.stdout.write("\r# {}s  [{:21s}] - {:>6.2f}%".format(name,
+    sys.stdout.write("\r# {}   [{:21s}] - {:>6.2f}%".format(name,
                                                             "■"*int(bar_length*(n+1)/n_tot),
                                                             (n+1)/n_tot*100))
     sys.stdout.flush()
@@ -151,7 +148,7 @@ def post_dat(files:list, folder:str='dat', progress_bar:bool=True) -> None:
         if progress_bar:
             _progress_bar("DAT", n, len(files))
 
-def post_irc(name:str, invert:bool=False, irc_dat:str=None, irc_crd:str=None, coord:str=None, stride:int=1, progress_bar:bool=True) -> None:
+def post_irc(name:str, invert:bool=False, irc_dat:str=None, irc_crd:str=None, coord:str=None, num_coord:int=100, progress_bar:bool=True) -> None:
     '''
         Post-Processing routine for IRC calculations
 
@@ -167,11 +164,25 @@ def post_irc(name:str, invert:bool=False, irc_dat:str=None, irc_crd:str=None, co
             folder to extract IRC coordinates to as .crd files
         coord : str, optional
             coordinates file to get topology from (.crd)
-        stride : int, optional
-            stride to use when extracting IRC coordinates (def: 1)
+        num_coord : int, optional
+            number of coordinates to extract on each side, geometrically spaced from the TS (def: 100)
+            use -1 to extract all coordinates
         progress_bar : bool, optional
             display progress bar (def: True)
     '''
+    def geomrange(start:int, stop:int, num:int) -> np.ndarray:
+        '''Return n unique integer values geometrically spaced within a given interval'''
+        if num > stop-start+1:
+            raise ValueError("num must be smaller than stop-start+1")
+        if start == 0:
+            start = 1e-6
+        l = np.array([])
+        num_geom = num
+        while len(l) < num:
+            l = np.unique(np.geomspace(start, stop, num=num_geom, dtype=int))
+            num_geom += 1
+        return l
+
     # define folders/files
     irc_for = f"{name}-FOR"
     irc_back = f"{name}-BACK"
@@ -200,27 +211,24 @@ def post_irc(name:str, invert:bool=False, irc_dat:str=None, irc_crd:str=None, co
     # extract IRC coordinates (.crd)
     if irc_crd and coord:
         sys.stdout.write(f"\r# Extracting IRC coordinates to '{irc_crd}'\n")
-        if not Molec:
-            sys.exit("ERROR: 'ecmb' could not be imported. Aborting extract IRC coordinates.")
         dcd_files = [f"{irc_back}/{irc_back}.dcd", f"{irc_for}/{irc_for}.dcd"]
         if invert:
             dcd_files = dcd_files[::-1]
         os.makedirs(irc_crd, exist_ok=True)
-        n_frame = 0
-        for f in dcd_files:
-            m = Molec()
-            m.load_crd(coord)
-            m.dcd_read(f"{irc_back}/{irc_back}.dcd")
-            n_frames = m.dcd_nframe
-            m.dcd_next()
-            n = 0
-            while m.dcd_next():
-                n += 1
-                if n % stride == 0:
-                    n_frame += 1
-                    m.save_crd(f"{irc_crd}/{name}-{n_frame:d}.crd")
-                    if progress_bar:
-                        _progress_bar("CRD", n_frame, (n_frames//stride)*2)
+        ncrd = 1
+        traj = Traj()
+        for nside, dcd_file in enumerate(dcd_files, 1):
+            traj.read_dcd(dcd_file, coord)
+            nframes = traj.nframes
+            num_coord_side = nframes if num_coord == -1 else min(num_coord, nframes)
+            traj.frames_xyz = [traj.frames_xyz[i] for i in geomrange(0, nframes-1, num_coord_side)]
+            if nside == 1:
+                traj.frames_xyz = traj.frames_xyz[::-1]
+            for i, frame in zip(range(ncrd, num_coord_side+ncrd), traj):
+                frame.write_crd(f"{irc_crd}/{name}-{i:d}.crd")
+                if progress_bar:
+                    _progress_bar(f"CRD-{nside}", i-ncrd, num_coord_side)
+            ncrd += num_coord_side
         sys.stdout.write(f"\r{' ':<80}\n\n")
 
 def post(dynnconfig:'DynnConfig', rm:bool=True) -> None:
@@ -258,7 +266,7 @@ def post(dynnconfig:'DynnConfig', rm:bool=True) -> None:
                  dynnconfig.opt['irc_dat'],
                  dynnconfig.opt['irc_crd'],
                  dynnconfig.opt['coord'],
-                 dynnconfig.opt['dcd_stride'])
+                 dynnconfig.opt['irc_ncrd'])
         return
 
     # list of files to process in natural order
