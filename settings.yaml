@@ -60,6 +60,7 @@ options:
     dcd_freq: 10
   interaction:
     name: int
+    dcd_stride: 1
   kie:
     name: kie
     temp: 298
