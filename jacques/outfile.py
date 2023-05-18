@@ -195,7 +195,7 @@ class OutFile:
         # sets of tuples of indexes
         ndx_all = set(itertools.product(*[np.arange(min_ndx[i], max_ndx[i]+1) for i in range(self.dim)]))
         ndx_data = set(tuple(i) for i in self.ndx.astype(int))
-        ndx_missing = np.array(list(ndx_all - ndx_data))
+        ndx_missing = np.array(list(ndx_all - ndx_data), dtype=int)
         # sort
         if ndx_missing.size > 0:
             sort_keys = [ndx_missing[:, i] for i in reversed(range(ndx_missing.shape[1]))]
