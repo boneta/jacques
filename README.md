@@ -2,7 +2,7 @@
 
 # JACQUES
 
-![python](https://img.shields.io/badge/python-3.8+-red.svg)
+![python](https://img.shields.io/badge/python-3.10+-red.svg)
 ![Platform](https://img.shields.io/badge/platform-linux-lightgrey.svg)
 [![License: GPLv3](https://img.shields.io/badge/license-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) \
 *Friendly interface for QM/MM calculations*
@@ -11,7 +11,7 @@
 This installation also includes the [DYNAMO<sup>N</sup>](https://github.com/boneta/dynamon) package.
 
 1. Clone the repository in your preferred location.
-2. Install the required dependencies with Python 3.8 or newer.
+2. Install the required dependencies with Python 3.10+.
 3. Set the environment variables of JACQUES (and DYNAMO<sup>N</sup>). For a better usability, *source* the file `jacques.rc` in your *.bashrc*.
 4. Compile DYNAMON with a Fortran compiler. (Tested with *gfortran*)
 
