@@ -83,7 +83,7 @@ class DynnConfig:
         'dcd_stride', 'int_dcd', 'int_wbox', 'int_ions',
         'kie_atomn', 'kie_skip', 'kie_mass', 'kie_hess',
 
-        'exe', 'queue', 'dry', 'post'
+        'exe', 'queue', 'account', 'dry', 'post'
         ]
 
     constr_keys = [
@@ -139,7 +139,7 @@ class DynnConfig:
         self.opt['name'] = self.name
         self.opt['out']  = self.out
         # general options
-        for option in self.opt_keys[1:-4]:
+        for option in self.opt_keys[1:-5]:
             if self.opt[option] is not None:
                 o = self.opt[option]
                 o = f"\"{o}\"" if type(o) == str and any(i in o for i in ["/", ","]) else o
@@ -314,7 +314,7 @@ class DynnConfig:
             mode : str
                 calculation mode
             opt_settings : dic
-                dictionary of options in the format of 'settings.json'
+                dictionary of options in the format of 'settings.yaml'
         '''
 
         if mode is None:

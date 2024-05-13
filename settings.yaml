@@ -14,7 +14,7 @@
 # irc_dir irc_steps irc_dsp
 # dcd_stride int_dcd int_wbox int_ions
 # kie_atomn kie_skip kie_mass kie_hess
-# exe queue
+# exe queue account
 
 ## CONSTRAINTS OPTIONS ('constr')
 # type symm
@@ -25,7 +25,7 @@
 
 queues:
   sge: BIFIZCAM
-  slurm: bifi
+  slurm: thin
 
 folders:
   dynamon: $DYNAMON
@@ -35,6 +35,7 @@ folders:
 options:
   all:
     exe: dynamon
+    account: flavotech
     cores: 1
     memory: 4000MB
     semiemp: AM1

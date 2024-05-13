@@ -82,6 +82,7 @@ def parser(mode=None) -> 'argparse.Namespace':
         #  COMPUTING  -------------------------------------------------
         h+=" --dry                             dry run: prepare but do not submit\n"
         h+=" --queue  <str>                    queue to submit\n"
+        h+=" --account <str>                   account to charge\n"
         h+=" --cores  <int>                    total number of CPU cores\n"
         h+=" --memory  <str>                   total amount of RAM memory\n\n"
         #  QM  --------------------------------------------------------
@@ -101,6 +102,7 @@ def parser(mode=None) -> 'argparse.Namespace':
     p.add_argument('--out', type=str)
     p.add_argument('--dry', action='store_true')
     p.add_argument('--queue', type=str)
+    p.add_argument('--account', type=str)
     p.add_argument('--cores', type=int)
     p.add_argument('--memory', type=str)
     p.add_argument('--charge', type=int)

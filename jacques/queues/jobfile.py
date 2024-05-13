@@ -47,7 +47,7 @@ class JobFile:
             formatted sring of commands to be executed as job
         opt : dict
             additional queue parameters
-            name, queue, cores, memory, memory_plus, nodes, array_first, array_last, msgf, jobf
+            name, queue, account, cores, memory, memory_plus, nodes, array_first, array_last, msgf, jobf
 
         Methods
         -------
@@ -60,6 +60,7 @@ class JobFile:
     opt_def = {
         'name': 'job',
         'queue': '',
+        'account': '',
         'cores': 1,
         'memory': '4000MB',
         'memory_plus': '1000MB',
@@ -83,7 +84,7 @@ class JobFile:
                 by default it will be guessed from the system PATH
             kwargs : dict, optional
                 additional queue parameters:
-                name, queue, cores, memory, memory_plus, nodes, array_first, array_last, msgf, jobf
+                name, queue, account, cores, memory, memory_plus, nodes, array_first, array_last, msgf, jobf
         """
         self.commands = commands
         self.qmanager = QueueManager(queue_manager)
